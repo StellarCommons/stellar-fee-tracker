@@ -13,12 +13,17 @@ mod scheduler;
 mod store;
 
 use std::sync::Arc;
+use std::time::Duration;
 
-use axum::{routing::get, Router};
+use axum::{
+    http::{HeaderName, HeaderValue, Method},
+    routing::get,
+    Router,
+};
 use clap::Parser;
 use dotenvy::dotenv;
 use tokio::sync::RwLock;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use crate::cli::Cli;
 use crate::config::Config;
@@ -64,6 +69,37 @@ async fn main() {
         (*horizon_client).clone(),
     ));
 
+    // ---- CORS ----
+    let origins: Vec<HeaderValue> = config
+        .allowed_origins
+        .iter()
+        .map(|o| o.parse().expect("Invalid origin in ALLOWED_ORIGINS"))
+        .collect();
+
+    let cors = CorsLayer::new()
+        .allow_origin(AllowOrigin::list(origins))
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([
+            HeaderName::from_static("content-type"),
+            HeaderName::from_static("x-api-key"),
+        ])
+        .expose_headers([
+            HeaderName::from_static("etag"),
+            HeaderName::from_static("cache-control"),
+            HeaderName::from_static("last-modified"),
+            HeaderName::from_static("x-ratelimit-limit"),
+            HeaderName::from_static("x-ratelimit-remaining"),
+            HeaderName::from_static("x-ratelimit-reset"),
+            HeaderName::from_static("retry-after"),
+        ])
+        .max_age(Duration::from_secs(3600));
+
     // ---- Axum router ----
     // Both sub-routers must share the same state type (()).
     // HorizonClient is injected via Extension so we avoid the Router<S>
@@ -73,7 +109,7 @@ async fn main() {
         .route("/fees/current", get(api::fees::current_fees))
         .merge(api::insights::create_insights_router(insights_engine.clone()))
         .layer(axum::Extension((*horizon_client).clone()))
-        .layer(CorsLayer::permissive());
+        .layer(cors);
 
     // ---- TCP listener ----
     let addr = format!("0.0.0.0:{}", config.api_port);

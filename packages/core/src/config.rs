@@ -8,6 +8,7 @@ pub struct Config {
     pub horizon_url: String,
     pub poll_interval_seconds: u64,
     pub api_port: u16,
+    pub allowed_origins: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -66,13 +67,29 @@ impl Config {
             .and_then(|v| v.parse::<u16>().ok())
             .unwrap_or(8080);
 
+        // -------- Allowed Origins --------
+        let allowed_origins = parse_allowed_origins(env::var("ALLOWED_ORIGINS").ok());
+
         Ok(Self {
             stellar_network,
             horizon_url,
             poll_interval_seconds,
             api_port,
+            allowed_origins,
         })
     }
+}
+
+/// Parses a comma-separated `ALLOWED_ORIGINS` value, trimming whitespace and
+/// dropping empty segments. Returns `["http://localhost:3000"]` when `None`.
+fn parse_allowed_origins(raw: Option<String>) -> Vec<String> {
+    raw.map(|v| {
+        v.split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    })
+    .unwrap_or_else(|| vec!["http://localhost:3000".to_string()])
 }
 
 #[cfg(test)]
@@ -152,5 +169,37 @@ mod tests {
         unsafe { env::remove_var("API_PORT"); }
         let config = Config::from_sources(&cli).unwrap();
         assert_eq!(config.api_port, 8080);
+    }
+
+    // ---- ALLOWED_ORIGINS parsing ----
+    // Tests call parse_allowed_origins directly to avoid env-var race conditions
+    // between parallel test threads.
+
+    #[test]
+    fn allowed_origins_defaults_to_localhost_3000() {
+        assert_eq!(
+            parse_allowed_origins(None),
+            vec!["http://localhost:3000"],
+        );
+    }
+
+    #[test]
+    fn allowed_origins_parses_comma_separated_list() {
+        assert_eq!(
+            parse_allowed_origins(Some(
+                "http://localhost:3000,https://app.example.com".to_string()
+            )),
+            vec!["http://localhost:3000", "https://app.example.com"],
+        );
+    }
+
+    #[test]
+    fn allowed_origins_trims_whitespace() {
+        assert_eq!(
+            parse_allowed_origins(Some(
+                "http://localhost:3000 , https://app.example.com , ".to_string()
+            )),
+            vec!["http://localhost:3000", "https://app.example.com"],
+        );
     }
 }

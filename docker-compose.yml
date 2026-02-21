@@ -1,0 +1,42 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: .            # repo root — gives Docker access to Cargo.toml workspace
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      STELLAR_NETWORK: testnet
+      POLL_INTERVAL_SECONDS: "30"
+      ALLOWED_ORIGINS: "http://localhost:3000"
+      API_PORT: "8080"
+      RUST_LOG: "info"
+    volumes:
+      - backend_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./packages/ui
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: /api
+      BACKEND_URL: http://backend:8080    # Docker service name, not localhost
+      NEXT_PUBLIC_STELLAR_NETWORK: testnet
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./packages/ui:/app
+      - /app/node_modules              # prevent host node_modules from shadowing
+
+volumes:
+  backend_data:
