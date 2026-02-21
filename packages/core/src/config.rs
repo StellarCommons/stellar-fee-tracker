@@ -7,6 +7,7 @@ pub struct Config {
     pub stellar_network: StellarNetwork,
     pub horizon_url: String,
     pub poll_interval_seconds: u64,
+    pub api_port: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -59,10 +60,17 @@ impl Config {
             .or_else(|| env::var("POLL_INTERVAL_SECONDS").ok()?.parse().ok())
             .ok_or("POLL_INTERVAL_SECONDS is required and must be a number")?;
 
+        // -------- API Port --------
+        let api_port = env::var("API_PORT")
+            .ok()
+            .and_then(|v| v.parse::<u16>().ok())
+            .unwrap_or(8080);
+
         Ok(Self {
             stellar_network,
             horizon_url,
             poll_interval_seconds,
+            api_port,
         })
     }
 }
@@ -136,5 +144,13 @@ mod tests {
         let result = Config::from_sources(&cli);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Invalid STELLAR_NETWORK"));
+    }
+
+    #[test]
+    fn api_port_defaults_to_8080() {
+        let cli = make_cli("testnet", None);
+        unsafe { env::remove_var("API_PORT"); }
+        let config = Config::from_sources(&cli).unwrap();
+        assert_eq!(config.api_port, 8080);
     }
 }

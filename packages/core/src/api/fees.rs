@@ -1,4 +1,4 @@
-use axum::{Json, extract::State};
+use axum::{Json, extract::Extension};
 use serde::Serialize;
 
 use crate::services::horizon::HorizonClient;
@@ -15,7 +15,7 @@ pub struct CurrentFeeResponse {
 
 
 pub async fn current_fees(
-    State(horizon_client): State<HorizonClient>,
+    Extension(horizon_client): Extension<HorizonClient>,
 ) -> Result<Json<CurrentFeeResponse>, AppError> {
     let stats = horizon_client.fetch_fee_stats().await?;
 
