@@ -1,15 +1,17 @@
 //! Fee polling scheduler.
 //!
 //! Drives the main polling loop: each tick fetches fee data from the
-//! Horizon provider, pushes it into the history store, and runs the
-//! insights engine — so the API layer always has fresh computed data.
+//! Horizon provider, pushes it into the history store, runs the
+//! insights engine, and persists new points to SQLite.
 //!
 //! Network errors are retried with exponential backoff + jitter (Issue #10).
 //! Parse errors are not retried — malformed data won't fix itself.
+//! DB write errors are logged but never crash the scheduler.
 
 use std::sync::Arc;
 use std::time::Duration;
 
+use chrono::Utc;
 use tokio::signal;
 use tokio::sync::RwLock;
 use tokio::time;
@@ -19,9 +21,11 @@ use crate::insights::{
 };
 use crate::insights::error::ProviderError;
 use crate::insights::types::FeeDataPoint;
+use crate::repository::FeeRepository;
 use crate::store::FeeHistoryStore;
 
 /// Run the fee polling loop until Ctrl+C is received.
+/// Uses defaults for retry and retention — prefer `run_fee_polling_with_retry` in production.
 pub async fn run_fee_polling(
     horizon_provider: Arc<dyn FeeDataProvider + Send + Sync>,
     history_store: Arc<RwLock<FeeHistoryStore>>,
@@ -35,11 +39,14 @@ pub async fn run_fee_polling(
         poll_interval_seconds,
         3,
         1000,
+        None,
+        7,
     )
     .await
 }
 
-/// Full version with configurable retry parameters.
+/// Full version with configurable retry parameters and optional DB persistence.
+#[allow(clippy::too_many_arguments)]
 pub async fn run_fee_polling_with_retry(
     horizon_provider: Arc<dyn FeeDataProvider + Send + Sync>,
     history_store: Arc<RwLock<FeeHistoryStore>>,
@@ -47,13 +54,16 @@ pub async fn run_fee_polling_with_retry(
     poll_interval_seconds: u64,
     max_retry_attempts: u32,
     base_retry_delay_ms: u64,
+    repository: Option<Arc<FeeRepository>>,
+    storage_retention_days: u64,
 ) {
     let mut interval = time::interval(Duration::from_secs(poll_interval_seconds));
 
     tracing::info!(
-        "Fee polling started (interval: {}s, max retries: {})",
+        "Fee polling started (interval: {}s, max retries: {}, retention: {}d)",
         poll_interval_seconds,
         max_retry_attempts,
+        storage_retention_days,
     );
 
     loop {
@@ -65,6 +75,8 @@ pub async fn run_fee_polling_with_retry(
                     &insights_engine,
                     max_retry_attempts,
                     base_retry_delay_ms,
+                    repository.as_deref(),
+                    storage_retention_days,
                 ).await;
             }
 
@@ -78,13 +90,15 @@ pub async fn run_fee_polling_with_retry(
     tracing::info!("Fee polling stopped cleanly");
 }
 
-/// Execute a single poll cycle with retry on network errors.
+/// Execute a single poll cycle with retry and optional persistence.
 async fn poll_once(
     horizon_provider: &Arc<dyn FeeDataProvider + Send + Sync>,
     history_store: &Arc<RwLock<FeeHistoryStore>>,
     insights_engine: &Arc<RwLock<FeeInsightsEngine>>,
     max_retry_attempts: u32,
     base_retry_delay_ms: u64,
+    repository: Option<&FeeRepository>,
+    storage_retention_days: u64,
 ) {
     let points = match fetch_with_retry(
         horizon_provider.as_ref(),
@@ -108,7 +122,7 @@ async fn poll_once(
         return;
     }
 
-    // Push all points into the history store
+    // Push into in-memory store
     {
         let mut store = history_store.write().await;
         for point in &points {
@@ -117,7 +131,7 @@ async fn poll_once(
         tracing::debug!("Store now holds {} data points", store.len());
     }
 
-    // Run the insights engine
+    // Run insights engine
     {
         let mut engine = insights_engine.write().await;
         match engine.process_fee_data(&points).await {
@@ -131,6 +145,25 @@ async fn poll_once(
             Err(err) => {
                 tracing::error!("Insights engine error: {}", err);
             }
+        }
+    }
+
+    // Persist to DB (non-fatal on error)
+    if let Some(repo) = repository {
+        match repo.insert_fee_points(&points).await {
+            Ok(()) => {
+                tracing::debug!("Persisted {} fee points to DB", points.len());
+            }
+            Err(err) => {
+                tracing::warn!("Failed to persist fee points to DB: {}", err);
+            }
+        }
+
+        let cutoff = Utc::now() - chrono::Duration::days(storage_retention_days as i64);
+        match repo.prune_older_than(cutoff).await {
+            Ok(n) if n > 0 => tracing::debug!("Pruned {} old fee points from DB", n),
+            Ok(_) => {}
+            Err(err) => tracing::warn!("Failed to prune old fee points: {}", err),
         }
     }
 }
@@ -157,13 +190,11 @@ pub async fn fetch_with_retry(
             }
 
             Err(ProviderError::FormatError { message }) => {
-                // Parse errors won't fix themselves — don't retry
                 tracing::error!("Parse error fetching fees (not retrying): {}", message);
                 return None;
             }
 
             Err(err) => {
-                // Network / rate-limit / service errors — retry with backoff
                 let backoff_ms = {
                     let exponential = base_delay_ms.saturating_mul(1u64 << attempt);
                     let jitter = rand::random::<u64>() % base_delay_ms.max(1);
@@ -224,7 +255,7 @@ mod tests {
         let store = make_shared_store();
         let engine = make_shared_engine();
 
-        poll_once(&provider, &store, &engine, 3, 0).await;
+        poll_once(&provider, &store, &engine, 3, 0, None, 7).await;
 
         assert_eq!(store.read().await.len(), 3);
     }
@@ -237,7 +268,7 @@ mod tests {
         let store = make_shared_store();
         let engine = make_shared_engine();
 
-        poll_once(&provider, &store, &engine, 3, 0).await;
+        poll_once(&provider, &store, &engine, 3, 0, None, 7).await;
 
         assert!(engine.read().await.get_last_update().is_some());
     }
@@ -250,7 +281,7 @@ mod tests {
         let store = make_shared_store();
         let engine = make_shared_engine();
 
-        poll_once(&provider, &store, &engine, 1, 0).await;
+        poll_once(&provider, &store, &engine, 1, 0, None, 7).await;
 
         assert!(store.read().await.is_empty());
     }
@@ -263,8 +294,8 @@ mod tests {
         let store = make_shared_store();
         let engine = make_shared_engine();
 
-        poll_once(&provider, &store, &engine, 3, 0).await;
-        poll_once(&provider, &store, &engine, 3, 0).await;
+        poll_once(&provider, &store, &engine, 3, 0, None, 7).await;
+        poll_once(&provider, &store, &engine, 3, 0, None, 7).await;
 
         assert_eq!(store.read().await.len(), 4);
     }
@@ -276,7 +307,7 @@ mod tests {
         let store = make_shared_store();
         let engine = make_shared_engine();
 
-        poll_once(&provider, &store, &engine, 3, 0).await;
+        poll_once(&provider, &store, &engine, 3, 0, None, 7).await;
 
         assert!(store.read().await.is_empty());
     }
@@ -296,11 +327,6 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_with_retry_retries_on_network_error_and_succeeds() {
-        // MockHorizonClient always returns the same response — to simulate
-        // fail-then-succeed we use call_count: first call fails via error
-        // config, but we test the retry path with a provider that always fails
-        // then asserts None (since mock can't alternate per-call yet).
-        // We verify that a permanent network error returns None after max attempts.
         let mock = MockHorizonClient::new().with_error(ProviderError::NetworkError {
             message: "timeout".into(),
         });
@@ -308,7 +334,6 @@ mod tests {
         let result = fetch_with_retry(&mock, 3, 0).await;
 
         assert!(result.is_none());
-        // 3 attempts were made
         assert_eq!(mock.calls(), 3);
     }
 
@@ -321,7 +346,6 @@ mod tests {
         let result = fetch_with_retry(&mock, 3, 0).await;
 
         assert!(result.is_none());
-        // Only 1 attempt — parse errors are not retried
         assert_eq!(mock.calls(), 1);
     }
 

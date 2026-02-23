@@ -12,6 +12,7 @@ pub struct Config {
     pub retry_attempts: u32,
     pub base_retry_delay_ms: u64,
     pub database_url: String,
+    pub storage_retention_days: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +114,11 @@ impl Config {
         let database_url = get("DATABASE_URL")
             .unwrap_or_else(|| "sqlite://stellar_fees.db".to_string());
 
+        // -------- Storage retention --------
+        let storage_retention_days = get("STORAGE_RETENTION_DAYS")
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(7);
+
         Ok(Self {
             stellar_network,
             horizon_url,
@@ -122,6 +128,7 @@ impl Config {
             retry_attempts,
             base_retry_delay_ms,
             database_url,
+            storage_retention_days,
         })
     }
 }
