@@ -139,7 +139,11 @@ async fn main() {
     // Both sub-routers are Router<()> after with_state, so merge works fine
     let fees_router = Router::new()
         .route("/fees/current", get(api::fees::current_fees))
-        .with_state(horizon_client.clone());
+        .route("/fees/history", get(api::fees::fee_history))
+        .with_state(Arc::new(api::fees::FeesApiState {
+            horizon_client: Some(horizon_client.clone()),
+            fee_store: fee_store.clone(),
+        }));
 
     let app = Router::new()
         .route("/health", get(api::health::health))

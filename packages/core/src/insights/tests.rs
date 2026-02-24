@@ -4,6 +4,7 @@
 //! core calculations, including rolling averages, extremes tracking, and congestion detection.
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use super::super::*;
     use crate::insights::{
@@ -17,7 +18,6 @@ mod tests {
     };
     use chrono::{Utc, Duration};
     use proptest::prelude::*;
-    use rand;
 
     // Test data generators
     fn fee_data_point_strategy() -> impl Strategy<Value = FeeDataPoint> {
@@ -251,7 +251,7 @@ mod tests {
                 fee_amount: (i + 1) * 100,
                 timestamp: now - Duration::minutes(i as i64 * 5),
                 transaction_hash: format!("hash{}", i),
-                ledger_sequence: i as u64 + 1,
+                ledger_sequence: i + 1,
             });
         }
         

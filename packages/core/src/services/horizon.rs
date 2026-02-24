@@ -12,9 +12,13 @@ pub struct HorizonClient {
 
 impl HorizonClient {
     pub fn new(base_url: String) -> Self {
+        let http = Client::builder()
+            .no_proxy()
+            .build()
+            .unwrap_or_else(|_| Client::new());
         Self {
             base_url,
-            http: Client::new(),
+            http,
         }
     }
 
