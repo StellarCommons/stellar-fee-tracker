@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use tokio::sync::RwLock;
 
 use crate::error::AppError;
-use crate::insights::FeeDataPoint;
+use crate::insights::{FeeDataPoint, FeeInsightsEngine, TrendIndicator, TrendStrength};
 use crate::services::horizon::HorizonClient;
 use crate::store::FeeHistoryStore;
 
@@ -22,6 +22,7 @@ pub type FeesState = Arc<FeesApiState>;
 pub struct FeesApiState {
     pub horizon_client: Option<Arc<HorizonClient>>,
     pub fee_store: Arc<RwLock<FeeHistoryStore>>,
+    pub insights_engine: Option<Arc<RwLock<FeeInsightsEngine>>>,
 }
 
 #[derive(Serialize)]
@@ -165,6 +166,82 @@ fn percentile_nearest_rank(sorted: &[u64], percentile: usize) -> u64 {
     sorted[rank - 1]
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TrendChanges {
+    #[serde(rename = "1h_pct")]
+    pub one_h_pct: Option<f64>,
+    #[serde(rename = "6h_pct")]
+    pub six_h_pct: Option<f64>,
+    #[serde(rename = "24h_pct")]
+    pub twenty_four_h_pct: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FeeTrendResponse {
+    pub status: String,
+    pub trend_strength: String,
+    pub changes: TrendChanges,
+    pub recent_spike_count: usize,
+    pub predicted_congestion_minutes: Option<i64>,
+    pub last_updated: DateTime<Utc>,
+}
+
+pub async fn fee_trend(
+    State(state): State<FeesState>,
+) -> Result<Json<FeeTrendResponse>, AppError> {
+    let engine = state
+        .insights_engine
+        .as_ref()
+        .ok_or_else(|| AppError::Config("Insights engine missing from fees state".to_string()))?;
+    let insights = engine.read().await.get_current_insights();
+    let averages = &insights.rolling_averages;
+    let current_avg = averages.short_term.value;
+
+    let changes = TrendChanges {
+        one_h_pct: percent_change(current_avg, &averages.short_term),
+        six_h_pct: percent_change(current_avg, &averages.medium_term),
+        twenty_four_h_pct: percent_change(current_avg, &averages.long_term),
+    };
+
+    Ok(Json(FeeTrendResponse {
+        status: trend_indicator_to_string(&insights.congestion_trends.current_trend),
+        trend_strength: trend_strength_to_string(&insights.congestion_trends.trend_strength),
+        changes,
+        recent_spike_count: insights.congestion_trends.recent_spikes.len(),
+        predicted_congestion_minutes: insights
+            .congestion_trends
+            .predicted_duration
+            .map(|d| d.num_minutes()),
+        last_updated: insights.last_updated,
+    }))
+}
+
+fn percent_change(current_avg: f64, window_avg: &crate::insights::AverageResult) -> Option<f64> {
+    if window_avg.is_partial || window_avg.value <= 0.0 {
+        return None;
+    }
+    Some(((current_avg - window_avg.value) / window_avg.value) * 100.0)
+}
+
+fn trend_indicator_to_string(indicator: &TrendIndicator) -> String {
+    match indicator {
+        TrendIndicator::Normal => "Normal",
+        TrendIndicator::Rising => "Rising",
+        TrendIndicator::Congested => "Congested",
+        TrendIndicator::Declining => "Declining",
+    }
+    .to_string()
+}
+
+fn trend_strength_to_string(strength: &TrendStrength) -> String {
+    match strength {
+        TrendStrength::Weak => "Weak",
+        TrendStrength::Moderate => "Moderate",
+        TrendStrength::Strong => "Strong",
+    }
+    .to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -174,6 +251,7 @@ mod tests {
         routing::get,
         Router,
     };
+    use crate::insights::InsightsConfig;
     use chrono::Duration;
     use tower::ServiceExt;
 
@@ -186,6 +264,15 @@ mod tests {
         Arc::new(FeesApiState {
             horizon_client: None,
             fee_store: Arc::new(RwLock::new(store)),
+            insights_engine: None,
+        })
+    }
+
+    fn make_fee_state_with_engine(engine: FeeInsightsEngine) -> FeesState {
+        Arc::new(FeesApiState {
+            horizon_client: None,
+            fee_store: Arc::new(RwLock::new(FeeHistoryStore::new(100))),
+            insights_engine: Some(Arc::new(RwLock::new(engine))),
         })
     }
 
@@ -288,5 +375,164 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    fn points_with_spike(high_fee: u64) -> Vec<FeeDataPoint> {
+        let now = Utc::now();
+        vec![
+            FeeDataPoint {
+                fee_amount: 100,
+                timestamp: now - Duration::minutes(60),
+                transaction_hash: "tx1".to_string(),
+                ledger_sequence: 1,
+            },
+            FeeDataPoint {
+                fee_amount: 100,
+                timestamp: now - Duration::minutes(50),
+                transaction_hash: "tx2".to_string(),
+                ledger_sequence: 2,
+            },
+            FeeDataPoint {
+                fee_amount: 100,
+                timestamp: now - Duration::minutes(40),
+                transaction_hash: "tx3".to_string(),
+                ledger_sequence: 3,
+            },
+            FeeDataPoint {
+                fee_amount: 100,
+                timestamp: now - Duration::minutes(30),
+                transaction_hash: "tx4".to_string(),
+                ledger_sequence: 4,
+            },
+            FeeDataPoint {
+                fee_amount: 100,
+                timestamp: now - Duration::minutes(20),
+                transaction_hash: "tx5".to_string(),
+                ledger_sequence: 5,
+            },
+            FeeDataPoint {
+                fee_amount: high_fee,
+                timestamp: now - Duration::minutes(10),
+                transaction_hash: "tx6".to_string(),
+                ledger_sequence: 6,
+            },
+            FeeDataPoint {
+                fee_amount: 100,
+                timestamp: now,
+                transaction_hash: "tx7".to_string(),
+                ledger_sequence: 7,
+            },
+        ]
+    }
+
+    fn points_without_spike() -> Vec<FeeDataPoint> {
+        let now = Utc::now();
+        vec![
+            FeeDataPoint {
+                fee_amount: 100,
+                timestamp: now - Duration::minutes(50),
+                transaction_hash: "n1".to_string(),
+                ledger_sequence: 11,
+            },
+            FeeDataPoint {
+                fee_amount: 110,
+                timestamp: now - Duration::minutes(40),
+                transaction_hash: "n2".to_string(),
+                ledger_sequence: 12,
+            },
+            FeeDataPoint {
+                fee_amount: 120,
+                timestamp: now - Duration::minutes(30),
+                transaction_hash: "n3".to_string(),
+                ledger_sequence: 13,
+            },
+        ]
+    }
+
+    #[tokio::test]
+    async fn fee_trend_returns_rising_status() {
+        let mut engine = FeeInsightsEngine::new(InsightsConfig::default());
+        let rising_points = points_with_spike(500);
+        engine.process_fee_data(&rising_points).await.unwrap();
+        let state = make_fee_state_with_engine(engine);
+
+        let app = Router::new()
+            .route("/fees/trend", get(fee_trend))
+            .with_state(state);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/trend")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let payload: FeeTrendResponse = serde_json::from_slice(&body).unwrap();
+        assert_eq!(payload.status, "Rising");
+    }
+
+    #[test]
+    fn trend_indicator_declining_serialises_to_human_readable_string() {
+        assert_eq!(
+            trend_indicator_to_string(&TrendIndicator::Declining),
+            "Declining"
+        );
+    }
+
+    #[tokio::test]
+    async fn fee_trend_returns_normal_status() {
+        let mut engine = FeeInsightsEngine::new(InsightsConfig::default());
+        let normal_points = points_without_spike();
+        engine.process_fee_data(&normal_points).await.unwrap();
+        let state = make_fee_state_with_engine(engine);
+
+        let app = Router::new()
+            .route("/fees/trend", get(fee_trend))
+            .with_state(state);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/trend")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let payload: FeeTrendResponse = serde_json::from_slice(&body).unwrap();
+        assert_eq!(payload.status, "Normal");
+    }
+
+    #[tokio::test]
+    async fn fee_trend_returns_null_changes_for_partial_windows() {
+        let state = make_fee_state_with_engine(FeeInsightsEngine::new(InsightsConfig::default()));
+        let app = Router::new()
+            .route("/fees/trend", get(fee_trend))
+            .with_state(state);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/trend")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let payload: FeeTrendResponse = serde_json::from_slice(&body).unwrap();
+        assert!(payload.changes.one_h_pct.is_none());
+        assert!(payload.changes.six_h_pct.is_none());
+        assert!(payload.changes.twenty_four_h_pct.is_none());
     }
 }

@@ -19,6 +19,7 @@ pub struct FeeInsightsEngine {
     tracker: ExtremesTracker,
     detector: CongestionDetector,
     last_update: Option<DateTime<Utc>>,
+    last_insights: Option<CurrentInsights>,
 }
 
 impl FeeInsightsEngine {
@@ -42,6 +43,7 @@ impl FeeInsightsEngine {
             tracker,
             detector,
             last_update: None,
+            last_insights: None,
         }
     }
     
@@ -90,6 +92,7 @@ impl FeeInsightsEngine {
         
         // Update last update time
         self.last_update = Some(processing_start);
+        self.last_insights = Some(insights.clone());
         
         // Calculate processing time
         let processing_time = chrono::Duration::from_std(start_time.elapsed())
@@ -207,6 +210,10 @@ impl FeeInsightsEngine {
     
     /// Get current insights
     pub fn get_current_insights(&self) -> CurrentInsights {
+        if let Some(insights) = &self.last_insights {
+            return insights.clone();
+        }
+
         let rolling_averages = self.calculator.calculate_averages()
             .unwrap_or_else(|_| self.create_default_rolling_averages());
         
@@ -308,6 +315,7 @@ impl FeeInsightsEngine {
         
         // Reset update time
         self.last_update = None;
+        self.last_insights = None;
         
         Ok(())
     }

@@ -134,15 +134,17 @@ async fn main() {
         .max_age(Duration::from_secs(3600));
 
     // ---- Axum router ----
-    // fees route gets Arc<HorizonClient> as state (Issue #08)
+    // fees routes get shared state (Horizon client, store, insights engine)
     // insights routes get Arc<RwLock<FeeInsightsEngine>> as their own state
     // Both sub-routers are Router<()> after with_state, so merge works fine
     let fees_router = Router::new()
         .route("/fees/current", get(api::fees::current_fees))
         .route("/fees/history", get(api::fees::fee_history))
+        .route("/fees/trend", get(api::fees::fee_trend))
         .with_state(Arc::new(api::fees::FeesApiState {
             horizon_client: Some(horizon_client.clone()),
             fee_store: fee_store.clone(),
+            insights_engine: Some(insights_engine.clone()),
         }));
 
     let app = Router::new()
