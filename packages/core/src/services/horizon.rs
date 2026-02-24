@@ -50,13 +50,13 @@ pub struct HorizonOperation {
     pub amount: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct HorizonFeeStats {
     pub last_ledger_base_fee: String,
     pub fee_charged: FeeCharged,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct FeeCharged {
     pub min: String,
     pub max: String,

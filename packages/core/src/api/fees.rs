@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -8,11 +9,12 @@ use axum::{
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
+use crate::cache::ResponseCache;
 use crate::error::AppError;
 use crate::insights::{FeeDataPoint, FeeInsightsEngine, TrendIndicator, TrendStrength};
-use crate::services::horizon::HorizonClient;
+use crate::services::horizon::{HorizonClient, HorizonFeeStats};
 use crate::store::FeeHistoryStore;
 
 /// Shared state type for the fees route.
@@ -21,11 +23,25 @@ pub type FeesState = Arc<FeesApiState>;
 #[derive(Clone)]
 pub struct FeesApiState {
     pub horizon_client: Option<Arc<HorizonClient>>,
+    pub fee_stats_provider: Option<Arc<dyn FeeStatsProvider>>,
     pub fee_store: Arc<RwLock<FeeHistoryStore>>,
     pub insights_engine: Option<Arc<RwLock<FeeInsightsEngine>>>,
+    pub current_fee_cache: Option<Arc<Mutex<ResponseCache<CurrentFeeResponse>>>>,
 }
 
-#[derive(Serialize)]
+#[async_trait]
+pub trait FeeStatsProvider: Send + Sync {
+    async fn fetch_fee_stats(&self) -> Result<HorizonFeeStats, AppError>;
+}
+
+#[async_trait]
+impl FeeStatsProvider for HorizonClient {
+    async fn fetch_fee_stats(&self) -> Result<HorizonFeeStats, AppError> {
+        HorizonClient::fetch_fee_stats(self).await
+    }
+}
+
+#[derive(Clone, Serialize)]
 pub struct PercentileFees {
     pub p10: String,
     pub p25: String,
@@ -35,7 +51,7 @@ pub struct PercentileFees {
     pub p95: String,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct CurrentFeeResponse {
     pub base_fee: String,
     pub min_fee: String,
@@ -47,13 +63,27 @@ pub struct CurrentFeeResponse {
 pub async fn current_fees(
     State(state): State<FeesState>,
 ) -> Result<Json<CurrentFeeResponse>, AppError> {
-    let client = state
-        .horizon_client
-        .as_ref()
-        .ok_or_else(|| AppError::Config("Horizon client missing from fees state".to_string()))?;
-    let stats = client.fetch_fee_stats().await?;
+    if let Some(cache) = &state.current_fee_cache {
+        let cached = {
+            let cache_guard = cache.lock().await;
+            cache_guard.get()
+        };
+        if let Some(response) = cached {
+            return Ok(Json(response));
+        }
+    }
 
-    Ok(Json(CurrentFeeResponse {
+    let stats = if let Some(provider) = state.fee_stats_provider.as_ref() {
+        provider.fetch_fee_stats().await?
+    } else {
+        let client = state
+            .horizon_client
+            .as_ref()
+            .ok_or_else(|| AppError::Config("Horizon client missing from fees state".to_string()))?;
+        client.fetch_fee_stats().await?
+    };
+
+    let response = CurrentFeeResponse {
         base_fee: stats.last_ledger_base_fee,
         min_fee: stats.fee_charged.min,
         max_fee: stats.fee_charged.max,
@@ -66,7 +96,14 @@ pub async fn current_fees(
             p90: stats.fee_charged.p90,
             p95: stats.fee_charged.p95,
         },
-    }))
+    };
+
+    if let Some(cache) = &state.current_fee_cache {
+        let mut cache_guard = cache.lock().await;
+        cache_guard.set(response.clone());
+    }
+
+    Ok(Json(response))
 }
 
 #[derive(Debug, Deserialize)]
@@ -245,15 +282,63 @@ fn trend_strength_to_string(strength: &TrendStrength) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use axum::{
         body::{to_bytes, Body},
         http::{Request, StatusCode},
         routing::get,
         Router,
     };
+    use async_trait::async_trait;
     use crate::insights::InsightsConfig;
+    use crate::services::horizon::FeeCharged;
     use chrono::Duration;
     use tower::ServiceExt;
+
+    #[derive(Clone)]
+    struct MockFeeStatsProvider {
+        calls: Arc<AtomicUsize>,
+        response: HorizonFeeStats,
+    }
+
+    impl MockFeeStatsProvider {
+        fn new(response: HorizonFeeStats) -> Self {
+            Self {
+                calls: Arc::new(AtomicUsize::new(0)),
+                response,
+            }
+        }
+
+        fn calls(&self) -> usize {
+            self.calls.load(Ordering::SeqCst)
+        }
+    }
+
+    #[async_trait]
+    impl FeeStatsProvider for MockFeeStatsProvider {
+        async fn fetch_fee_stats(&self) -> Result<HorizonFeeStats, AppError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            Ok(self.response.clone())
+        }
+    }
+
+    fn sample_horizon_stats(base_fee: &str) -> HorizonFeeStats {
+        HorizonFeeStats {
+            last_ledger_base_fee: base_fee.to_string(),
+            fee_charged: FeeCharged {
+                min: "100".to_string(),
+                max: "5000".to_string(),
+                avg: "213".to_string(),
+                p10: "100".to_string(),
+                p25: "100".to_string(),
+                p50: "150".to_string(),
+                p75: "300".to_string(),
+                p90: "500".to_string(),
+                p95: "800".to_string(),
+            },
+        }
+    }
 
     fn make_fee_state_with_points(points: Vec<FeeDataPoint>) -> FeesState {
         let mut store = FeeHistoryStore::new(100);
@@ -263,16 +348,33 @@ mod tests {
 
         Arc::new(FeesApiState {
             horizon_client: None,
+            fee_stats_provider: None,
             fee_store: Arc::new(RwLock::new(store)),
             insights_engine: None,
+            current_fee_cache: None,
         })
     }
 
     fn make_fee_state_with_engine(engine: FeeInsightsEngine) -> FeesState {
         Arc::new(FeesApiState {
             horizon_client: None,
+            fee_stats_provider: None,
             fee_store: Arc::new(RwLock::new(FeeHistoryStore::new(100))),
             insights_engine: Some(Arc::new(RwLock::new(engine))),
+            current_fee_cache: None,
+        })
+    }
+
+    fn make_fee_state_for_current(
+        provider: Arc<dyn FeeStatsProvider>,
+        ttl: std::time::Duration,
+    ) -> FeesState {
+        Arc::new(FeesApiState {
+            horizon_client: None,
+            fee_stats_provider: Some(provider),
+            fee_store: Arc::new(RwLock::new(FeeHistoryStore::new(100))),
+            insights_engine: None,
+            current_fee_cache: Some(Arc::new(Mutex::new(ResponseCache::new(ttl)))),
         })
     }
 
@@ -309,6 +411,74 @@ mod tests {
         assert_eq!(json["percentiles"]["p10"], "100");
         assert_eq!(json["percentiles"]["p50"], "150");
         assert_eq!(json["percentiles"]["p95"], "800");
+    }
+
+    #[tokio::test]
+    async fn current_fees_uses_cache_on_second_call() {
+        let provider = Arc::new(MockFeeStatsProvider::new(sample_horizon_stats("100")));
+        let state = make_fee_state_for_current(provider.clone(), std::time::Duration::from_secs(60));
+        let app = Router::new()
+            .route("/fees/current", get(current_fees))
+            .with_state(state);
+
+        let first = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(first.status(), StatusCode::OK);
+
+        let second = app
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(second.status(), StatusCode::OK);
+        assert_eq!(provider.calls(), 1);
+    }
+
+    #[tokio::test]
+    async fn current_fees_fetches_fresh_data_after_ttl_expires() {
+        let provider = Arc::new(MockFeeStatsProvider::new(sample_horizon_stats("100")));
+        let state = make_fee_state_for_current(provider.clone(), std::time::Duration::from_millis(5));
+        let app = Router::new()
+            .route("/fees/current", get(current_fees))
+            .with_state(state);
+
+        let first = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(first.status(), StatusCode::OK);
+
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+        let second = app
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(second.status(), StatusCode::OK);
+        assert_eq!(provider.calls(), 2);
     }
 
     #[test]

@@ -4,6 +4,7 @@
 
 mod api;
 mod cli;
+mod cache;
 mod config;
 mod db;
 mod error;
@@ -25,6 +26,7 @@ use tokio::sync::RwLock;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use crate::cli::Cli;
+use crate::cache::ResponseCache;
 use crate::config::Config;
 use crate::error::AppError;
 use crate::insights::{FeeInsightsEngine, InsightsConfig, HorizonFeeDataProvider};
@@ -74,6 +76,9 @@ async fn main() {
 
     let insights_engine = Arc::new(RwLock::new(
         FeeInsightsEngine::new(InsightsConfig::default()),
+    ));
+    let current_fee_cache = Arc::new(tokio::sync::Mutex::new(
+        ResponseCache::new(Duration::from_secs(config.cache_ttl_seconds)),
     ));
 
     // ---- Startup rehydration ----
@@ -143,8 +148,10 @@ async fn main() {
         .route("/fees/trend", get(api::fees::fee_trend))
         .with_state(Arc::new(api::fees::FeesApiState {
             horizon_client: Some(horizon_client.clone()),
+            fee_stats_provider: Some(horizon_client.clone()),
             fee_store: fee_store.clone(),
             insights_engine: Some(insights_engine.clone()),
+            current_fee_cache: Some(current_fee_cache.clone()),
         }));
 
     let app = Router::new()

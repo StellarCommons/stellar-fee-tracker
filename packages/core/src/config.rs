@@ -13,6 +13,7 @@ pub struct Config {
     pub base_retry_delay_ms: u64,
     pub database_url: String,
     pub storage_retention_days: u64,
+    pub cache_ttl_seconds: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -119,6 +120,11 @@ impl Config {
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(7);
 
+        // -------- Cache TTL --------
+        let cache_ttl_seconds = get("CACHE_TTL_SECONDS")
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(5);
+
         Ok(Self {
             stellar_network,
             horizon_url,
@@ -129,6 +135,7 @@ impl Config {
             base_retry_delay_ms,
             database_url,
             storage_retention_days,
+            cache_ttl_seconds,
         })
     }
 }
@@ -238,5 +245,20 @@ mod tests {
             config.allowed_origins,
             vec!["http://localhost:3000", "https://app.example.com"]
         );
+    }
+
+    #[test]
+    fn cache_ttl_seconds_defaults_to_5() {
+        let cli = make_cli("testnet", None);
+        let config = Config::from_sources_with_overrides(&cli, &no_env()).unwrap();
+        assert_eq!(config.cache_ttl_seconds, 5);
+    }
+
+    #[test]
+    fn cache_ttl_seconds_reads_env_override() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("CACHE_TTL_SECONDS", "12")]);
+        let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
+        assert_eq!(config.cache_ttl_seconds, 12);
     }
 }
