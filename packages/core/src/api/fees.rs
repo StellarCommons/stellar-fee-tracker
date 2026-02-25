@@ -2,8 +2,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::{
+    body::Body,
     extract::{Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode, header},
+    response::Response,
     Json,
 };
 use chrono::{DateTime, Duration, Utc};
@@ -16,6 +18,7 @@ use crate::error::AppError;
 use crate::insights::{FeeDataPoint, FeeInsightsEngine, TrendIndicator, TrendStrength};
 use crate::services::horizon::HorizonClient;
 use crate::store::FeeHistoryStore;
+use super::headers::{cache_control, compute_etag, if_none_match_matches, last_modified};
 
 /// Shared state type for the fees route.
 pub type FeesState = Arc<FeesApiState>;
@@ -73,32 +76,99 @@ pub struct CurrentFeeResponse {
     pub percentiles: PercentileFees,
 }
 
+const FEES_CURRENT_MAX_AGE: u32 = 5;
+const FEES_CURRENT_SWR: u32 = 10;
+const FEES_HISTORY_MAX_AGE: u32 = 30;
+const FEES_HISTORY_SWR: u32 = 60;
+
+async fn resolve_last_modified(state: &FeesState) -> axum::http::HeaderValue {
+    let timestamp = match state.insights_engine.as_ref() {
+        Some(engine) => engine
+            .read()
+            .await
+            .get_last_update()
+            .unwrap_or_else(Utc::now),
+        None => Utc::now(),
+    };
+    last_modified(timestamp)
+}
+
+fn not_modified_response(
+    max_age: u32,
+    swr: u32,
+    etag: &str,
+    last_modified_value: axum::http::HeaderValue,
+) -> Response {
+    Response::builder()
+        .status(StatusCode::NOT_MODIFIED)
+        .header(header::CACHE_CONTROL, cache_control(max_age, swr))
+        .header(header::ETAG, etag)
+        .header(header::LAST_MODIFIED, last_modified_value)
+        .body(Body::empty())
+        .expect("304 response should be valid")
+}
+
+fn json_cache_response(
+    max_age: u32,
+    swr: u32,
+    etag: &str,
+    last_modified_value: axum::http::HeaderValue,
+    body: Vec<u8>,
+) -> Response {
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::CACHE_CONTROL, cache_control(max_age, swr))
+        .header(header::ETAG, etag)
+        .header(header::LAST_MODIFIED, last_modified_value)
+        .body(Body::from(body))
+        .expect("cached response should be valid")
+}
+
 pub async fn current_fees(
     State(state): State<FeesState>,
-) -> Result<Json<CurrentFeeResponse>, AppError> {
-    {
+    request_headers: HeaderMap,
+) -> Result<Response, AppError> {
+    let cached = {
         let cache = state.fee_cache.lock().await;
         if cache.is_fresh() {
-            if let Some(cached) = cache.get() {
-                return Ok(Json(cached));
-            }
+            cache.get()
+        } else {
+            None
         }
-    }
-
-    let provider = state
-        .fee_stats_provider
-        .as_ref()
-        .ok_or_else(|| {
+    };
+    let payload = if let Some(cached) = cached {
+        cached
+    } else {
+        let provider = state.fee_stats_provider.as_ref().ok_or_else(|| {
             AppError::Config("Fee stats provider missing from fees state".to_string())
         })?;
-    let fresh = provider.fetch_current_fees().await?;
-
-    {
+        let fresh = provider.fetch_current_fees().await?;
         let mut cache = state.fee_cache.lock().await;
         cache.set(fresh.clone());
+        fresh
+    };
+
+    let body = serde_json::to_vec(&payload).map_err(|err| AppError::Parse(err.to_string()))?;
+    let etag = compute_etag(&body);
+    let last_modified_value = resolve_last_modified(&state).await;
+
+    if if_none_match_matches(&request_headers, &etag) {
+        return Ok(not_modified_response(
+            FEES_CURRENT_MAX_AGE,
+            FEES_CURRENT_SWR,
+            &etag,
+            last_modified_value,
+        ));
     }
 
-    Ok(Json(fresh))
+    Ok(json_cache_response(
+        FEES_CURRENT_MAX_AGE,
+        FEES_CURRENT_SWR,
+        &etag,
+        last_modified_value,
+        body,
+    ))
 }
 
 #[derive(Debug, Deserialize)]
@@ -128,7 +198,8 @@ pub struct FeeHistoryResponse {
 pub async fn fee_history(
     State(state): State<FeesState>,
     Query(params): Query<FeeHistoryQuery>,
-) -> Result<Json<FeeHistoryResponse>, (StatusCode, Json<Value>)> {
+    request_headers: HeaderMap,
+) -> Result<Response, (StatusCode, Json<Value>)> {
     let window = params.window.unwrap_or_else(|| "1h".to_string());
     let duration = parse_window(&window).ok_or_else(|| {
         (
@@ -145,14 +216,39 @@ pub async fn fee_history(
     };
     let summary = compute_summary(&fees);
 
-    Ok(Json(FeeHistoryResponse {
+    let payload = FeeHistoryResponse {
         window,
         from,
         to,
         data_points: fees.len(),
         fees,
         summary,
-    }))
+    };
+    let body = serde_json::to_vec(&payload).map_err(|err| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("Failed to serialize fee history: {}", err) })),
+        )
+    })?;
+    let etag = compute_etag(&body);
+    let last_modified_value = resolve_last_modified(&state).await;
+
+    if if_none_match_matches(&request_headers, &etag) {
+        return Ok(not_modified_response(
+            FEES_HISTORY_MAX_AGE,
+            FEES_HISTORY_SWR,
+            &etag,
+            last_modified_value,
+        ));
+    }
+
+    Ok(json_cache_response(
+        FEES_HISTORY_MAX_AGE,
+        FEES_HISTORY_SWR,
+        &etag,
+        last_modified_value,
+        body,
+    ))
 }
 
 fn parse_window(value: &str) -> Option<Duration> {
@@ -523,6 +619,50 @@ mod tests {
         assert_eq!(second_payload.base_fee, "200");
 
         assert_eq!(mock.calls(), 2, "expired cache should trigger refetch");
+    }
+
+    #[tokio::test]
+    async fn current_fees_returns_304_when_if_none_match_matches() {
+        let mock = MockFeeStatsProvider::new(vec![make_current_fee_response("100")]);
+        let state = make_fee_state_with_provider(Arc::new(mock), StdDuration::from_secs(60));
+
+        let app = Router::new()
+            .route("/fees/current", get(current_fees))
+            .with_state(state);
+
+        let first = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(first.status(), StatusCode::OK);
+        let etag = first
+            .headers()
+            .get("etag")
+            .expect("missing etag header")
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        let second = app
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/current")
+                    .header("if-none-match", etag)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(second.status(), StatusCode::NOT_MODIFIED);
+        let body = to_bytes(second.into_body(), usize::MAX).await.unwrap();
+        assert!(body.is_empty(), "304 response should not include body");
     }
 
     #[tokio::test]

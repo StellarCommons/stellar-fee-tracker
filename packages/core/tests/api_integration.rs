@@ -226,6 +226,12 @@ async fn health_returns_200_with_ok_body() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        resp.headers()
+            .get("cache-control")
+            .and_then(|v| v.to_str().ok()),
+        Some("no-store")
+    );
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
     assert_eq!(&bytes[..], b"ok");
 }
@@ -275,6 +281,67 @@ async fn fees_current_base_fee_matches_mock_value() {
     assert_eq!(json["percentiles"]["p50"], "150");
 }
 
+#[tokio::test]
+async fn fees_current_sets_cache_control_max_age_5() {
+    let (app, _mock) = build_test_app().await;
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/fees/current")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        resp.headers()
+            .get("cache-control")
+            .and_then(|v| v.to_str().ok()),
+        Some("max-age=5, stale-while-revalidate=10")
+    );
+    assert!(resp.headers().contains_key("etag"));
+    assert!(resp.headers().contains_key("last-modified"));
+}
+
+#[tokio::test]
+async fn fees_current_if_none_match_returns_304() {
+    let (app, _mock) = build_test_app().await;
+    let first = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/fees/current")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::OK);
+    let etag = first
+        .headers()
+        .get("etag")
+        .expect("missing etag header")
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    let second = app
+        .oneshot(
+            Request::builder()
+                .uri("/fees/current")
+                .header("if-none-match", etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second.status(), StatusCode::NOT_MODIFIED);
+    let body = second.into_body().collect().await.unwrap().to_bytes();
+    assert!(body.is_empty(), "304 response should not include body");
+}
+
 // ---- GET /fees/history ------------------------------------------------------
 
 #[tokio::test]
@@ -291,6 +358,14 @@ async fn fees_history_default_window_returns_200_with_fees_array() {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        resp.headers()
+            .get("cache-control")
+            .and_then(|v| v.to_str().ok()),
+        Some("max-age=30, stale-while-revalidate=60")
+    );
+    assert!(resp.headers().contains_key("etag"));
+    assert!(resp.headers().contains_key("last-modified"));
     let json = json_body(resp.into_body()).await;
     assert!(json["fees"].is_array(), "missing fees array");
     assert!(json["summary"].is_object(), "missing summary");
@@ -463,6 +538,67 @@ async fn insights_rolling_averages_has_short_term() {
         json["rolling_averages"]["short_term"].is_object(),
         "missing rolling_averages.short_term"
     );
+}
+
+#[tokio::test]
+async fn insights_sets_cache_and_validation_headers() {
+    let (app, _mock) = build_test_app().await;
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/insights")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        resp.headers()
+            .get("cache-control")
+            .and_then(|v| v.to_str().ok()),
+        Some("max-age=10, stale-while-revalidate=20")
+    );
+    assert!(resp.headers().contains_key("etag"));
+    assert!(resp.headers().contains_key("last-modified"));
+}
+
+#[tokio::test]
+async fn insights_if_none_match_returns_304() {
+    let (app, _mock) = build_test_app().await;
+    let first = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/insights")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::OK);
+    let etag = first
+        .headers()
+        .get("etag")
+        .expect("missing etag header")
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    let second = app
+        .oneshot(
+            Request::builder()
+                .uri("/insights")
+                .header("if-none-match", etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second.status(), StatusCode::NOT_MODIFIED);
+    let body = second.into_body().collect().await.unwrap().to_bytes();
+    assert!(body.is_empty(), "304 response should not include body");
 }
 
 // ---- GET /insights/averages -------------------------------------------------

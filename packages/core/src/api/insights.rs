@@ -1,9 +1,10 @@
 //! Insights API endpoints
 
 use axum::{
+    body::Body,
     extract::State,
-    http::StatusCode,
-    response::Json,
+    http::{HeaderMap, StatusCode, header},
+    response::{Json, Response},
     routing::get,
     Router,
 };
@@ -11,7 +12,8 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::insights::{FeeInsightsEngine, CurrentInsights, RollingAverages, FeeExtremes, CongestionTrends};
+use crate::insights::{CongestionTrends, FeeExtremes, FeeInsightsEngine, RollingAverages};
+use super::headers::{cache_control, compute_etag, if_none_match_matches, last_modified};
 
 /// Shared state for the insights API
 pub type InsightsState = Arc<RwLock<FeeInsightsEngine>>;
@@ -30,10 +32,37 @@ pub fn create_insights_router(insights_engine: InsightsState) -> Router {
 /// Get current insights
 async fn get_current_insights(
     State(engine): State<InsightsState>,
-) -> Result<Json<CurrentInsights>, (StatusCode, Json<Value>)> {
+    request_headers: HeaderMap,
+) -> Result<Response, (StatusCode, Json<Value>)> {
     let engine = engine.read().await;
     let insights = engine.get_current_insights();
-    Ok(Json(insights))
+    let body = serde_json::to_vec(&insights).map_err(|err| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("Failed to serialize insights: {}", err) })),
+        )
+    })?;
+    let etag = compute_etag(&body);
+    let last_modified_value = last_modified(insights.last_updated);
+
+    if if_none_match_matches(&request_headers, &etag) {
+        return Ok(Response::builder()
+            .status(StatusCode::NOT_MODIFIED)
+            .header(header::CACHE_CONTROL, cache_control(10, 20))
+            .header(header::ETAG, etag.as_str())
+            .header(header::LAST_MODIFIED, last_modified_value)
+            .body(Body::empty())
+            .expect("304 insights response should be valid"));
+    }
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::CACHE_CONTROL, cache_control(10, 20))
+        .header(header::ETAG, etag.as_str())
+        .header(header::LAST_MODIFIED, last_modified_value)
+        .body(Body::from(body))
+        .expect("insights response should be valid"))
 }
 
 /// Get rolling averages
