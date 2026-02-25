@@ -4,8 +4,8 @@
 //! `tower::ServiceExt::oneshot` — no live server or live Horizon node needed.
 //!
 //! `build_test_app()` wires together:
-//! - A `MockHorizonClient` seeded with fee data points (via a local wiremock
-//!   server for the `/fees/current` handler which calls `HorizonClient` directly)
+//! - A wiremocked Horizon `/fee_stats` endpoint used by the `/fees/current`
+//!   fee-stats provider implementation
 //! - An in-memory SQLite pool with all migrations applied
 //! - A `FeeHistoryStore` pre-populated with data points
 //! - A `FeeInsightsEngine` pre-warmed with the same data
@@ -13,6 +13,7 @@
 //! - The complete merged `Router<()>` returned ready for `oneshot`
 
 use std::sync::Arc;
+use std::time::Duration as StdDuration;
 
 use axum::{
     body::Body,
@@ -20,10 +21,10 @@ use axum::{
     routing::get,
     Router,
 };
-use chrono::{Duration, Utc};
+use chrono::{Duration as ChronoDuration, Utc};
 use http_body_util::BodyExt;
 use serde_json::Value;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tower::ServiceExt;
 use wiremock::{
     matchers::{method, path},
@@ -32,6 +33,7 @@ use wiremock::{
 
 use stellar_fee_tracker::{
     api,
+    cache::ResponseCache,
     db,
     insights::{FeeInsightsEngine, InsightsConfig},
     insights::types::FeeDataPoint,
@@ -94,7 +96,7 @@ fn make_fee_points(count: usize) -> Vec<FeeDataPoint> {
     (0..count)
         .map(|i| FeeDataPoint {
             fee_amount: 100 + (i as u64 * 10),
-            timestamp: now - Duration::minutes((count - i) as i64),
+            timestamp: now - ChronoDuration::minutes((count - i) as i64),
             transaction_hash: format!("txhash{:06}", i),
             ledger_sequence: 50_000_000 + i as u64,
         })
@@ -131,6 +133,9 @@ async fn build_test_app() -> (Router, MockServer) {
 
     // ---- Shared state ----
     let horizon_client = Arc::new(HorizonClient::new(mock_server.uri()));
+    let fee_stats_provider: Arc<dyn api::fees::FeeStatsProvider + Send + Sync> =
+        horizon_client.clone();
+    let fee_cache = Arc::new(Mutex::new(ResponseCache::new(StdDuration::from_secs(5))));
 
     let fee_store = Arc::new(RwLock::new(FeeHistoryStore::new(DEFAULT_CAPACITY)));
     {
@@ -158,7 +163,8 @@ async fn build_test_app() -> (Router, MockServer) {
         .route("/fees/history", get(api::fees::fee_history))
         .route("/fees/trend", get(api::fees::fee_trend))
         .with_state(Arc::new(api::fees::FeesApiState {
-            horizon_client: Some(horizon_client),
+            fee_stats_provider: Some(fee_stats_provider),
+            fee_cache,
             fee_store: fee_store.clone(),
             insights_engine: Some(insights_engine.clone()),
         }));

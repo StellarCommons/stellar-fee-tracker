@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -8,8 +9,9 @@ use axum::{
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
+use crate::cache::ResponseCache;
 use crate::error::AppError;
 use crate::insights::{FeeDataPoint, FeeInsightsEngine, TrendIndicator, TrendStrength};
 use crate::services::horizon::HorizonClient;
@@ -18,14 +20,41 @@ use crate::store::FeeHistoryStore;
 /// Shared state type for the fees route.
 pub type FeesState = Arc<FeesApiState>;
 
+#[async_trait]
+pub trait FeeStatsProvider {
+    async fn fetch_current_fees(&self) -> Result<CurrentFeeResponse, AppError>;
+}
+
+#[async_trait]
+impl FeeStatsProvider for HorizonClient {
+    async fn fetch_current_fees(&self) -> Result<CurrentFeeResponse, AppError> {
+        let stats = self.fetch_fee_stats().await?;
+        Ok(CurrentFeeResponse {
+            base_fee: stats.last_ledger_base_fee,
+            min_fee: stats.fee_charged.min,
+            max_fee: stats.fee_charged.max,
+            avg_fee: stats.fee_charged.avg,
+            percentiles: PercentileFees {
+                p10: stats.fee_charged.p10,
+                p25: stats.fee_charged.p25,
+                p50: stats.fee_charged.p50,
+                p75: stats.fee_charged.p75,
+                p90: stats.fee_charged.p90,
+                p95: stats.fee_charged.p95,
+            },
+        })
+    }
+}
+
 #[derive(Clone)]
 pub struct FeesApiState {
-    pub horizon_client: Option<Arc<HorizonClient>>,
+    pub fee_stats_provider: Option<Arc<dyn FeeStatsProvider + Send + Sync>>,
+    pub fee_cache: Arc<Mutex<ResponseCache<CurrentFeeResponse>>>,
     pub fee_store: Arc<RwLock<FeeHistoryStore>>,
     pub insights_engine: Option<Arc<RwLock<FeeInsightsEngine>>>,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PercentileFees {
     pub p10: String,
     pub p25: String,
@@ -35,7 +64,7 @@ pub struct PercentileFees {
     pub p95: String,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CurrentFeeResponse {
     pub base_fee: String,
     pub min_fee: String,
@@ -47,26 +76,29 @@ pub struct CurrentFeeResponse {
 pub async fn current_fees(
     State(state): State<FeesState>,
 ) -> Result<Json<CurrentFeeResponse>, AppError> {
-    let client = state
-        .horizon_client
-        .as_ref()
-        .ok_or_else(|| AppError::Config("Horizon client missing from fees state".to_string()))?;
-    let stats = client.fetch_fee_stats().await?;
+    {
+        let cache = state.fee_cache.lock().await;
+        if cache.is_fresh() {
+            if let Some(cached) = cache.get() {
+                return Ok(Json(cached));
+            }
+        }
+    }
 
-    Ok(Json(CurrentFeeResponse {
-        base_fee: stats.last_ledger_base_fee,
-        min_fee: stats.fee_charged.min,
-        max_fee: stats.fee_charged.max,
-        avg_fee: stats.fee_charged.avg,
-        percentiles: PercentileFees {
-            p10: stats.fee_charged.p10,
-            p25: stats.fee_charged.p25,
-            p50: stats.fee_charged.p50,
-            p75: stats.fee_charged.p75,
-            p90: stats.fee_charged.p90,
-            p95: stats.fee_charged.p95,
-        },
-    }))
+    let provider = state
+        .fee_stats_provider
+        .as_ref()
+        .ok_or_else(|| {
+            AppError::Config("Fee stats provider missing from fees state".to_string())
+        })?;
+    let fresh = provider.fetch_current_fees().await?;
+
+    {
+        let mut cache = state.fee_cache.lock().await;
+        cache.set(fresh.clone());
+    }
+
+    Ok(Json(fresh))
 }
 
 #[derive(Debug, Deserialize)]
@@ -245,6 +277,12 @@ fn trend_strength_to_string(strength: &TrendStrength) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
+    use std::collections::VecDeque;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Mutex as StdMutex;
+    use std::time::Duration as StdDuration;
+
     use axum::{
         body::{to_bytes, Body},
         http::{Request, StatusCode},
@@ -252,8 +290,45 @@ mod tests {
         Router,
     };
     use crate::insights::InsightsConfig;
-    use chrono::Duration;
+    use chrono::Duration as ChronoDuration;
     use tower::ServiceExt;
+
+    #[derive(Clone)]
+    struct MockFeeStatsProvider {
+        responses: Arc<StdMutex<VecDeque<CurrentFeeResponse>>>,
+        calls: Arc<AtomicUsize>,
+    }
+
+    impl MockFeeStatsProvider {
+        fn new(responses: Vec<CurrentFeeResponse>) -> Self {
+            Self {
+                responses: Arc::new(StdMutex::new(VecDeque::from(responses))),
+                calls: Arc::new(AtomicUsize::new(0)),
+            }
+        }
+
+        fn calls(&self) -> usize {
+            self.calls.load(Ordering::SeqCst)
+        }
+    }
+
+    #[async_trait]
+    impl FeeStatsProvider for MockFeeStatsProvider {
+        async fn fetch_current_fees(&self) -> Result<CurrentFeeResponse, AppError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            self.responses
+                .lock()
+                .expect("mock fee stats provider lock poisoned")
+                .pop_front()
+                .ok_or_else(|| {
+                    AppError::Unknown("No mock fee stats response configured".to_string())
+                })
+        }
+    }
+
+    fn default_cache() -> Arc<Mutex<ResponseCache<CurrentFeeResponse>>> {
+        Arc::new(Mutex::new(ResponseCache::new(StdDuration::from_secs(5))))
+    }
 
     fn make_fee_state_with_points(points: Vec<FeeDataPoint>) -> FeesState {
         let mut store = FeeHistoryStore::new(100);
@@ -262,7 +337,8 @@ mod tests {
         }
 
         Arc::new(FeesApiState {
-            horizon_client: None,
+            fee_stats_provider: None,
+            fee_cache: default_cache(),
             fee_store: Arc::new(RwLock::new(store)),
             insights_engine: None,
         })
@@ -270,17 +346,47 @@ mod tests {
 
     fn make_fee_state_with_engine(engine: FeeInsightsEngine) -> FeesState {
         Arc::new(FeesApiState {
-            horizon_client: None,
+            fee_stats_provider: None,
+            fee_cache: default_cache(),
             fee_store: Arc::new(RwLock::new(FeeHistoryStore::new(100))),
             insights_engine: Some(Arc::new(RwLock::new(engine))),
         })
+    }
+
+    fn make_fee_state_with_provider(
+        provider: Arc<dyn FeeStatsProvider + Send + Sync>,
+        ttl: StdDuration,
+    ) -> FeesState {
+        Arc::new(FeesApiState {
+            fee_stats_provider: Some(provider),
+            fee_cache: Arc::new(Mutex::new(ResponseCache::new(ttl))),
+            fee_store: Arc::new(RwLock::new(FeeHistoryStore::new(100))),
+            insights_engine: None,
+        })
+    }
+
+    fn make_current_fee_response(base_fee: &str) -> CurrentFeeResponse {
+        CurrentFeeResponse {
+            base_fee: base_fee.to_string(),
+            min_fee: "100".to_string(),
+            max_fee: "5000".to_string(),
+            avg_fee: "213".to_string(),
+            percentiles: PercentileFees {
+                p10: "100".to_string(),
+                p25: "100".to_string(),
+                p50: "150".to_string(),
+                p75: "300".to_string(),
+                p90: "500".to_string(),
+                p95: "800".to_string(),
+            },
+        }
     }
 
     fn test_points(count: usize, minutes_ago_start: i64) -> Vec<FeeDataPoint> {
         (0..count)
             .map(|idx| FeeDataPoint {
                 fee_amount: 100 + (idx as u64 * 100),
-                timestamp: Utc::now() - Duration::minutes(minutes_ago_start - idx as i64),
+                timestamp: Utc::now() - ChronoDuration::minutes(minutes_ago_start - idx as i64),
                 transaction_hash: format!("tx-{}", idx),
                 ledger_sequence: 50_000_000 + idx as u64,
             })
@@ -326,6 +432,97 @@ mod tests {
             assert!(json.get(field).is_some(), "missing field: {}", field);
             assert!(!json[field].as_str().unwrap().is_empty());
         }
+    }
+
+    #[tokio::test]
+    async fn current_fees_returns_cached_response_within_ttl() {
+        let mock = MockFeeStatsProvider::new(vec![
+            make_current_fee_response("100"),
+            make_current_fee_response("200"),
+        ]);
+        let state = make_fee_state_with_provider(Arc::new(mock.clone()), StdDuration::from_secs(60));
+
+        let app = Router::new()
+            .route("/fees/current", get(current_fees))
+            .with_state(state);
+
+        let first = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(first.status(), StatusCode::OK);
+        let first_body = to_bytes(first.into_body(), usize::MAX).await.unwrap();
+        let first_payload: CurrentFeeResponse = serde_json::from_slice(&first_body).unwrap();
+        assert_eq!(first_payload.base_fee, "100");
+
+        let second = app
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(second.status(), StatusCode::OK);
+        let second_body = to_bytes(second.into_body(), usize::MAX).await.unwrap();
+        let second_payload: CurrentFeeResponse = serde_json::from_slice(&second_body).unwrap();
+        assert_eq!(second_payload.base_fee, "100");
+
+        assert_eq!(mock.calls(), 1, "second request should hit cache");
+    }
+
+    #[tokio::test]
+    async fn current_fees_refetches_after_ttl_expiry() {
+        let mock = MockFeeStatsProvider::new(vec![
+            make_current_fee_response("100"),
+            make_current_fee_response("200"),
+        ]);
+        let state =
+            make_fee_state_with_provider(Arc::new(mock.clone()), StdDuration::from_millis(10));
+
+        let app = Router::new()
+            .route("/fees/current", get(current_fees))
+            .with_state(state);
+
+        let first = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(first.status(), StatusCode::OK);
+        let first_body = to_bytes(first.into_body(), usize::MAX).await.unwrap();
+        let first_payload: CurrentFeeResponse = serde_json::from_slice(&first_body).unwrap();
+        assert_eq!(first_payload.base_fee, "100");
+
+        tokio::time::sleep(StdDuration::from_millis(25)).await;
+
+        let second = app
+            .oneshot(
+                Request::builder()
+                    .uri("/fees/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(second.status(), StatusCode::OK);
+        let second_body = to_bytes(second.into_body(), usize::MAX).await.unwrap();
+        let second_payload: CurrentFeeResponse = serde_json::from_slice(&second_body).unwrap();
+        assert_eq!(second_payload.base_fee, "200");
+
+        assert_eq!(mock.calls(), 2, "expired cache should trigger refetch");
     }
 
     #[tokio::test]
@@ -382,37 +579,37 @@ mod tests {
         vec![
             FeeDataPoint {
                 fee_amount: 100,
-                timestamp: now - Duration::minutes(60),
+                timestamp: now - ChronoDuration::minutes(60),
                 transaction_hash: "tx1".to_string(),
                 ledger_sequence: 1,
             },
             FeeDataPoint {
                 fee_amount: 100,
-                timestamp: now - Duration::minutes(50),
+                timestamp: now - ChronoDuration::minutes(50),
                 transaction_hash: "tx2".to_string(),
                 ledger_sequence: 2,
             },
             FeeDataPoint {
                 fee_amount: 100,
-                timestamp: now - Duration::minutes(40),
+                timestamp: now - ChronoDuration::minutes(40),
                 transaction_hash: "tx3".to_string(),
                 ledger_sequence: 3,
             },
             FeeDataPoint {
                 fee_amount: 100,
-                timestamp: now - Duration::minutes(30),
+                timestamp: now - ChronoDuration::minutes(30),
                 transaction_hash: "tx4".to_string(),
                 ledger_sequence: 4,
             },
             FeeDataPoint {
                 fee_amount: 100,
-                timestamp: now - Duration::minutes(20),
+                timestamp: now - ChronoDuration::minutes(20),
                 transaction_hash: "tx5".to_string(),
                 ledger_sequence: 5,
             },
             FeeDataPoint {
                 fee_amount: high_fee,
-                timestamp: now - Duration::minutes(10),
+                timestamp: now - ChronoDuration::minutes(10),
                 transaction_hash: "tx6".to_string(),
                 ledger_sequence: 6,
             },
@@ -430,19 +627,19 @@ mod tests {
         vec![
             FeeDataPoint {
                 fee_amount: 100,
-                timestamp: now - Duration::minutes(50),
+                timestamp: now - ChronoDuration::minutes(50),
                 transaction_hash: "n1".to_string(),
                 ledger_sequence: 11,
             },
             FeeDataPoint {
                 fee_amount: 110,
-                timestamp: now - Duration::minutes(40),
+                timestamp: now - ChronoDuration::minutes(40),
                 transaction_hash: "n2".to_string(),
                 ledger_sequence: 12,
             },
             FeeDataPoint {
                 fee_amount: 120,
-                timestamp: now - Duration::minutes(30),
+                timestamp: now - ChronoDuration::minutes(30),
                 transaction_hash: "n3".to_string(),
                 ledger_sequence: 13,
             },

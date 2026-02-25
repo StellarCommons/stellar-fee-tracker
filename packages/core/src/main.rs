@@ -4,6 +4,7 @@
 
 mod alerts;
 mod api;
+mod cache;
 mod metrics;
 mod cli;
 mod config;
@@ -23,15 +24,16 @@ use axum::http::{HeaderName, Method};
 use clap::Parser;
 use dotenvy::dotenv;
 use std::time::Duration;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
+use crate::cache::ResponseCache;
 use crate::cli::Cli;
-use crate::metrics::AppMetrics;
 use crate::config::Config;
 use crate::error::AppError;
 use crate::insights::{FeeInsightsEngine, InsightsConfig, HorizonFeeDataProvider};
 use crate::logging::init_logging;
+use crate::metrics::AppMetrics;
 use crate::repository::FeeRepository;
 use crate::scheduler::run_fee_polling_with_retry;
 use crate::services::horizon::HorizonClient;
@@ -86,6 +88,9 @@ async fn main() {
     let insights_engine = Arc::new(RwLock::new(
         FeeInsightsEngine::new(InsightsConfig::default()),
     ));
+    let current_fees_cache = Arc::new(Mutex::new(ResponseCache::new(Duration::from_secs(
+        config.cache_ttl_seconds,
+    ))));
 
     // ---- Startup rehydration ----
     let rehydration_window = chrono::Utc::now() - chrono::Duration::hours(24);
@@ -112,6 +117,8 @@ async fn main() {
     let horizon_provider = Arc::new(HorizonFeeDataProvider::new(
         (*horizon_client).clone(),
     ));
+    let fee_stats_provider: Arc<dyn api::fees::FeeStatsProvider + Send + Sync> =
+        horizon_client.clone();
 
     // ---- CORS policy ----
     let origins: Vec<axum::http::HeaderValue> = config
@@ -153,7 +160,8 @@ async fn main() {
         .route("/fees/history", get(api::fees::fee_history))
         .route("/fees/trend", get(api::fees::fee_trend))
         .with_state(Arc::new(api::fees::FeesApiState {
-            horizon_client: Some(horizon_client.clone()),
+            fee_stats_provider: Some(fee_stats_provider),
+            fee_cache: current_fees_cache,
             fee_store: fee_store.clone(),
             insights_engine: Some(insights_engine.clone()),
         }));

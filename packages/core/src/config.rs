@@ -7,6 +7,7 @@ pub struct Config {
     pub stellar_network: StellarNetwork,
     pub horizon_url: String,
     pub poll_interval_seconds: u64,
+    pub cache_ttl_seconds: u64,
     pub api_port: u16,
     pub allowed_origins: Vec<String>,
     pub retry_attempts: u32,
@@ -93,6 +94,11 @@ impl Config {
             .and_then(|v| v.parse::<u16>().ok())
             .unwrap_or(8080);
 
+        // -------- Cache TTL --------
+        let cache_ttl_seconds = get("CACHE_TTL_SECONDS")
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(5);
+
         // -------- Allowed Origins --------
         let allowed_origins = get("ALLOWED_ORIGINS")
             .unwrap_or_else(|| "http://localhost:3000".to_string())
@@ -123,6 +129,7 @@ impl Config {
             stellar_network,
             horizon_url,
             poll_interval_seconds,
+            cache_ttl_seconds,
             api_port,
             allowed_origins,
             retry_attempts,
@@ -205,6 +212,21 @@ mod tests {
         let cli = make_cli("testnet", None);
         let config = Config::from_sources_with_overrides(&cli, &no_env()).unwrap();
         assert_eq!(config.api_port, 8080);
+    }
+
+    #[test]
+    fn cache_ttl_defaults_to_five_seconds() {
+        let cli = make_cli("testnet", None);
+        let config = Config::from_sources_with_overrides(&cli, &no_env()).unwrap();
+        assert_eq!(config.cache_ttl_seconds, 5);
+    }
+
+    #[test]
+    fn cache_ttl_uses_env_override() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("CACHE_TTL_SECONDS", "12")]);
+        let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
+        assert_eq!(config.cache_ttl_seconds, 12);
     }
 
     #[test]
