@@ -12,6 +12,7 @@ mod db;
 mod error;
 mod insights;
 mod logging;
+mod middleware;
 mod repository;
 mod services;
 mod scheduler;
@@ -34,6 +35,7 @@ use crate::error::AppError;
 use crate::insights::{FeeInsightsEngine, InsightsConfig, HorizonFeeDataProvider};
 use crate::logging::init_logging;
 use crate::metrics::AppMetrics;
+use crate::middleware::auth::require_api_key;
 use crate::repository::FeeRepository;
 use crate::scheduler::run_fee_polling_with_retry;
 use crate::services::horizon::HorizonClient;
@@ -58,7 +60,20 @@ async fn main() {
             std::process::exit(1);
         });
 
-    tracing::info!("Configuration loaded: {:?}", config);
+    tracing::info!(
+        "Configuration loaded: network={:?}, horizon_url={}, poll_interval_seconds={}, cache_ttl_seconds={}, api_port={}, allowed_origins={:?}, retry_attempts={}, base_retry_delay_ms={}, database_url={}, storage_retention_days={}, api_key_configured={}",
+        config.stellar_network,
+        config.horizon_url,
+        config.poll_interval_seconds,
+        config.cache_ttl_seconds,
+        config.api_port,
+        config.allowed_origins,
+        config.retry_attempts,
+        config.base_retry_delay_ms,
+        config.database_url,
+        config.storage_retention_days,
+        config.api_key.is_some(),
+    );
 
     // ---- Database ----
     let db_pool = db::create_pool(&config.database_url)
@@ -170,7 +185,9 @@ async fn main() {
     let metrics_for_handler = app_metrics.clone();
 
     let app = Router::new()
-        .route("/health", get(api::health::health))
+        .route("/health", get(api::health::health));
+
+    let protected_routes = Router::new()
         .route(
             "/metrics",
             get(move || {
@@ -206,7 +223,21 @@ async fn main() {
                 .route("/alerts/config/:id", axum::routing::delete(api::alerts::delete_alert))
                 .route("/alerts/history", axum::routing::get(api::alerts::get_alert_history))
                 .with_state(repository.clone()),
-        )
+        );
+
+    let protected_routes = match config.api_key.clone() {
+        Some(expected_key) => {
+            tracing::info!("API key authentication is enabled for protected routes");
+            protected_routes.layer(axum::middleware::from_fn_with_state(
+                Some(expected_key),
+                require_api_key,
+            ))
+        }
+        None => protected_routes,
+    };
+
+    let app = app
+        .merge(protected_routes)
         .layer(cors);
 
     // ---- TCP listener ----

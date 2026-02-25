@@ -8,6 +8,7 @@ pub struct Config {
     pub horizon_url: String,
     pub poll_interval_seconds: u64,
     pub cache_ttl_seconds: u64,
+    pub api_key: Option<String>,
     pub api_port: u16,
     pub allowed_origins: Vec<String>,
     pub retry_attempts: u32,
@@ -99,6 +100,9 @@ impl Config {
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(5);
 
+        // -------- API key --------
+        let api_key = get("API_KEY").filter(|v| !v.trim().is_empty());
+
         // -------- Allowed Origins --------
         let allowed_origins = get("ALLOWED_ORIGINS")
             .unwrap_or_else(|| "http://localhost:3000".to_string())
@@ -130,6 +134,7 @@ impl Config {
             horizon_url,
             poll_interval_seconds,
             cache_ttl_seconds,
+            api_key,
             api_port,
             allowed_origins,
             retry_attempts,
@@ -227,6 +232,29 @@ mod tests {
         let env = HashMap::from([("CACHE_TTL_SECONDS", "12")]);
         let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
         assert_eq!(config.cache_ttl_seconds, 12);
+    }
+
+    #[test]
+    fn api_key_defaults_to_none() {
+        let cli = make_cli("testnet", None);
+        let config = Config::from_sources_with_overrides(&cli, &no_env()).unwrap();
+        assert_eq!(config.api_key, None);
+    }
+
+    #[test]
+    fn api_key_reads_from_env() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("API_KEY", "secret")]);
+        let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
+        assert_eq!(config.api_key.as_deref(), Some("secret"));
+    }
+
+    #[test]
+    fn empty_api_key_is_treated_as_unset() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("API_KEY", "   ")]);
+        let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
+        assert!(config.api_key.is_none());
     }
 
     #[test]
