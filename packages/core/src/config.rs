@@ -10,6 +10,7 @@ pub struct Config {
     pub poll_interval_seconds: u64,
     pub cache_ttl_seconds: u64,
     pub api_key: Option<String>,
+    pub rate_limit_per_minute: u32,
     pub webhook_url: Option<String>,
     pub alert_threshold: SpikeSeverity,
     pub api_port: u16,
@@ -113,6 +114,12 @@ impl Config {
         // -------- API key --------
         let api_key = get("API_KEY").filter(|v| !v.trim().is_empty());
 
+        // -------- Rate limiting --------
+        let rate_limit_per_minute = get("RATE_LIMIT_PER_MINUTE")
+            .and_then(|v| v.parse::<u32>().ok())
+            .filter(|v| *v > 0)
+            .unwrap_or(60);
+
         // -------- Alerts --------
         let webhook_url = get("WEBHOOK_URL").filter(|v| !v.trim().is_empty());
         let alert_threshold = get("ALERT_THRESHOLD")
@@ -152,6 +159,7 @@ impl Config {
             poll_interval_seconds,
             cache_ttl_seconds,
             api_key,
+            rate_limit_per_minute,
             webhook_url,
             alert_threshold,
             api_port,
@@ -268,6 +276,29 @@ mod tests {
         let cli = make_cli("testnet", None);
         let config = Config::from_sources_with_overrides(&cli, &no_env()).unwrap();
         assert_eq!(config.api_key, None);
+    }
+
+    #[test]
+    fn rate_limit_defaults_to_sixty_requests_per_minute() {
+        let cli = make_cli("testnet", None);
+        let config = Config::from_sources_with_overrides(&cli, &no_env()).unwrap();
+        assert_eq!(config.rate_limit_per_minute, 60);
+    }
+
+    #[test]
+    fn rate_limit_uses_env_override() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("RATE_LIMIT_PER_MINUTE", "120")]);
+        let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
+        assert_eq!(config.rate_limit_per_minute, 120);
+    }
+
+    #[test]
+    fn rate_limit_zero_falls_back_to_default() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("RATE_LIMIT_PER_MINUTE", "0")]);
+        let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
+        assert_eq!(config.rate_limit_per_minute, 60);
     }
 
     #[test]
