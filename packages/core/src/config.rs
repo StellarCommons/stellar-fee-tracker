@@ -1,6 +1,7 @@
 use std::env;
 
 use crate::cli::Cli;
+use crate::insights::SpikeSeverity;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -9,6 +10,8 @@ pub struct Config {
     pub poll_interval_seconds: u64,
     pub cache_ttl_seconds: u64,
     pub api_key: Option<String>,
+    pub webhook_url: Option<String>,
+    pub alert_threshold: SpikeSeverity,
     pub api_port: u16,
     pub allowed_origins: Vec<String>,
     pub retry_attempts: u32,
@@ -30,6 +33,13 @@ impl StellarNetwork {
         match self {
             StellarNetwork::Testnet => "https://horizon-testnet.stellar.org",
             StellarNetwork::Mainnet => "https://horizon.stellar.org",
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            StellarNetwork::Testnet => "testnet",
+            StellarNetwork::Mainnet => "mainnet",
         }
     }
 }
@@ -103,6 +113,13 @@ impl Config {
         // -------- API key --------
         let api_key = get("API_KEY").filter(|v| !v.trim().is_empty());
 
+        // -------- Alerts --------
+        let webhook_url = get("WEBHOOK_URL").filter(|v| !v.trim().is_empty());
+        let alert_threshold = get("ALERT_THRESHOLD")
+            .map(|v| parse_spike_severity(&v))
+            .transpose()?
+            .unwrap_or(SpikeSeverity::Major);
+
         // -------- Allowed Origins --------
         let allowed_origins = get("ALLOWED_ORIGINS")
             .unwrap_or_else(|| "http://localhost:3000".to_string())
@@ -135,6 +152,8 @@ impl Config {
             poll_interval_seconds,
             cache_ttl_seconds,
             api_key,
+            webhook_url,
+            alert_threshold,
             api_port,
             allowed_origins,
             retry_attempts,
@@ -142,6 +161,16 @@ impl Config {
             database_url,
             storage_retention_days,
         })
+    }
+}
+
+fn parse_spike_severity(value: &str) -> Result<SpikeSeverity, String> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "minor" => Ok(SpikeSeverity::Minor),
+        "moderate" => Ok(SpikeSeverity::Moderate),
+        "major" => Ok(SpikeSeverity::Major),
+        "critical" => Ok(SpikeSeverity::Critical),
+        _ => Err(format!("Invalid ALERT_THRESHOLD: {}", value)),
     }
 }
 
@@ -255,6 +284,48 @@ mod tests {
         let env = HashMap::from([("API_KEY", "   ")]);
         let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
         assert!(config.api_key.is_none());
+    }
+
+    #[test]
+    fn webhook_url_defaults_to_none() {
+        let cli = make_cli("testnet", None);
+        let config = Config::from_sources_with_overrides(&cli, &no_env()).unwrap();
+        assert!(config.webhook_url.is_none());
+    }
+
+    #[test]
+    fn webhook_url_uses_env_value() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("WEBHOOK_URL", "https://example.com/hook")]);
+        let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
+        assert_eq!(
+            config.webhook_url.as_deref(),
+            Some("https://example.com/hook")
+        );
+    }
+
+    #[test]
+    fn alert_threshold_defaults_to_major() {
+        let cli = make_cli("testnet", None);
+        let config = Config::from_sources_with_overrides(&cli, &no_env()).unwrap();
+        assert_eq!(config.alert_threshold, SpikeSeverity::Major);
+    }
+
+    #[test]
+    fn alert_threshold_parses_from_env() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("ALERT_THRESHOLD", "Critical")]);
+        let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
+        assert_eq!(config.alert_threshold, SpikeSeverity::Critical);
+    }
+
+    #[test]
+    fn invalid_alert_threshold_returns_error() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("ALERT_THRESHOLD", "Severe")]);
+        let result = Config::from_sources_with_overrides(&cli, &env);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Invalid ALERT_THRESHOLD"));
     }
 
     #[test]

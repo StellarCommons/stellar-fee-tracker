@@ -16,6 +16,7 @@ use tokio::signal;
 use tokio::sync::RwLock;
 use tokio::time;
 
+use crate::alerts::AlertManager;
 use crate::insights::{
     FeeDataProvider, FeeInsightsEngine,
 };
@@ -32,6 +33,7 @@ pub async fn run_fee_polling(
     history_store: Arc<RwLock<FeeHistoryStore>>,
     insights_engine: Arc<RwLock<FeeInsightsEngine>>,
     poll_interval_seconds: u64,
+    alert_manager: Option<Arc<AlertManager>>,
 ) {
     run_fee_polling_with_retry(
         horizon_provider,
@@ -43,6 +45,7 @@ pub async fn run_fee_polling(
         None,
         7,
         None,
+        alert_manager,
     )
     .await
 }
@@ -59,6 +62,7 @@ pub async fn run_fee_polling_with_retry(
     repository: Option<Arc<FeeRepository>>,
     storage_retention_days: u64,
     metrics: Option<Arc<AppMetrics>>,
+    alert_manager: Option<Arc<AlertManager>>,
 ) {
     let mut interval = time::interval(Duration::from_secs(poll_interval_seconds));
 
@@ -81,6 +85,7 @@ pub async fn run_fee_polling_with_retry(
                     repository.as_deref(),
                     storage_retention_days,
                     metrics.as_deref(),
+                    alert_manager.as_deref(),
                 ).await;
             }
 
@@ -104,6 +109,7 @@ async fn poll_once(
     repository: Option<&FeeRepository>,
     storage_retention_days: u64,
     metrics: Option<&AppMetrics>,
+    alert_manager: Option<&AlertManager>,
 ) {
     if let Some(m) = metrics {
         m.polls_total.inc();
@@ -159,7 +165,12 @@ async fn poll_once(
                 );
                 if let Some(m) = metrics {
                     m.current_avg_fee.set(update.insights.rolling_averages.short_term.value);
-                    m.spikes_detected_total.inc_by(update.insights.recent_spikes.len() as f64);
+                    m.spikes_detected_total.inc_by(
+                        update.insights.congestion_trends.recent_spikes.len() as f64
+                    );
+                }
+                if let Some(manager) = alert_manager {
+                    manager.check_and_dispatch(&update).await;
                 }
             }
             Err(err) => {
@@ -275,7 +286,7 @@ mod tests {
         let store = make_shared_store();
         let engine = make_shared_engine();
 
-        poll_once(&provider, &store, &engine, 3, 0, None, 7, None).await;
+        poll_once(&provider, &store, &engine, 3, 0, None, 7, None, None).await;
 
         assert_eq!(store.read().await.len(), 3);
     }
@@ -288,7 +299,7 @@ mod tests {
         let store = make_shared_store();
         let engine = make_shared_engine();
 
-        poll_once(&provider, &store, &engine, 3, 0, None, 7, None).await;
+        poll_once(&provider, &store, &engine, 3, 0, None, 7, None, None).await;
 
         assert!(engine.read().await.get_last_update().is_some());
     }
@@ -301,7 +312,7 @@ mod tests {
         let store = make_shared_store();
         let engine = make_shared_engine();
 
-        poll_once(&provider, &store, &engine, 1, 0, None, 7, None).await;
+        poll_once(&provider, &store, &engine, 1, 0, None, 7, None, None).await;
 
         assert!(store.read().await.is_empty());
     }
@@ -314,8 +325,8 @@ mod tests {
         let store = make_shared_store();
         let engine = make_shared_engine();
 
-        poll_once(&provider, &store, &engine, 3, 0, None, 7, None).await;
-        poll_once(&provider, &store, &engine, 3, 0, None, 7, None).await;
+        poll_once(&provider, &store, &engine, 3, 0, None, 7, None, None).await;
+        poll_once(&provider, &store, &engine, 3, 0, None, 7, None, None).await;
 
         assert_eq!(store.read().await.len(), 4);
     }
@@ -327,7 +338,7 @@ mod tests {
         let store = make_shared_store();
         let engine = make_shared_engine();
 
-        poll_once(&provider, &store, &engine, 3, 0, None, 7, None).await;
+        poll_once(&provider, &store, &engine, 3, 0, None, 7, None, None).await;
 
         assert!(store.read().await.is_empty());
     }

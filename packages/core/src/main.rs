@@ -35,6 +35,7 @@ use crate::error::AppError;
 use crate::insights::{FeeInsightsEngine, InsightsConfig, HorizonFeeDataProvider};
 use crate::logging::init_logging;
 use crate::metrics::AppMetrics;
+use crate::alerts::AlertManager;
 use crate::middleware::auth::require_api_key;
 use crate::repository::FeeRepository;
 use crate::scheduler::run_fee_polling_with_retry;
@@ -61,7 +62,7 @@ async fn main() {
         });
 
     tracing::info!(
-        "Configuration loaded: network={:?}, horizon_url={}, poll_interval_seconds={}, cache_ttl_seconds={}, api_port={}, allowed_origins={:?}, retry_attempts={}, base_retry_delay_ms={}, database_url={}, storage_retention_days={}, api_key_configured={}",
+        "Configuration loaded: network={:?}, horizon_url={}, poll_interval_seconds={}, cache_ttl_seconds={}, api_port={}, allowed_origins={:?}, retry_attempts={}, base_retry_delay_ms={}, database_url={}, storage_retention_days={}, api_key_configured={}, webhook_configured={}, alert_threshold={:?}",
         config.stellar_network,
         config.horizon_url,
         config.poll_interval_seconds,
@@ -73,6 +74,8 @@ async fn main() {
         config.database_url,
         config.storage_retention_days,
         config.api_key.is_some(),
+        config.webhook_url.is_some(),
+        config.alert_threshold,
     );
 
     // ---- Database ----
@@ -134,6 +137,11 @@ async fn main() {
     ));
     let fee_stats_provider: Arc<dyn api::fees::FeeStatsProvider + Send + Sync> =
         horizon_client.clone();
+    let alert_manager = Arc::new(AlertManager::new(
+        config.webhook_url.clone(),
+        config.alert_threshold.clone(),
+        config.stellar_network.as_str().to_string(),
+    ));
 
     // ---- CORS policy ----
     let origins: Vec<axum::http::HeaderValue> = config
@@ -268,6 +276,7 @@ async fn main() {
             Some(repository),
             config.storage_retention_days,
             Some(app_metrics),
+            Some(alert_manager),
         ),
     );
 
