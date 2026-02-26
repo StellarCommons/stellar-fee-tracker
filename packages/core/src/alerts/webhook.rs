@@ -1,92 +1,146 @@
-//! Webhook alert delivery.
-//!
-//! Dispatches HTTP POST notifications to registered webhook targets when a
-//! fee spike is detected. Every delivery attempt — successful or not — is
-//! persisted in the `alert_events` table via [`FeeRepository::log_alert_event`].
-//!
-//! This module is the integration point for Issue #31 (webhook delivery) and
-//! Issue #32 (alert history). The `dispatch` function is called by the
-//! scheduler / insights engine whenever a spike crosses an alert threshold.
+use std::time::Duration;
 
-use std::sync::Arc;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-use chrono::Utc;
+const REQUEST_TIMEOUT_SECONDS: u64 = 10;
+const MAX_ATTEMPTS: usize = 2;
+const RETRY_DELAY_SECONDS: u64 = 2;
 
-use crate::repository::{AlertEvent, FeeRepository};
-
-/// Payload describing a triggered fee-spike alert.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlertPayload {
-    /// The alert config row id that triggered this dispatch (if known).
-    pub config_id: Option<i64>,
-    /// Severity label, e.g. "Minor", "Major", "Critical".
+    pub event: String,
     pub severity: String,
-    /// Highest fee observed during the spike window (in stroops).
-    pub peak_fee: i64,
-    /// Rolling baseline fee used for comparison.
+    pub peak_fee: u64,
     pub baseline_fee: f64,
-    /// `peak_fee / baseline_fee`.
     pub spike_ratio: f64,
-    /// Destination webhook URL.
-    pub webhook_url: String,
+    pub start_time: DateTime<Utc>,
+    pub duration_seconds: i64,
+    pub network: String,
+    pub timestamp: DateTime<Utc>,
 }
 
-/// Dispatch a webhook notification and log the outcome to the database.
-///
-/// The HTTP client (`reqwest`) is not yet wired up in this stub — the
-/// `delivered` flag defaults to `false` until Issue #31 lands and the full
-/// HTTP POST is implemented.  The repository logging is fully functional.
-pub async fn dispatch(payload: AlertPayload, repository: Arc<FeeRepository>) {
-    // TODO (Issue #31): perform the actual HTTP POST here and capture success.
-    let delivered = false;
+#[derive(Debug, Clone)]
+pub struct WebhookDelivery {
+    client: reqwest::Client,
+    url: String,
+}
 
-    let event = AlertEvent {
-        id: None,
-        config_id: payload.config_id,
-        severity: payload.severity.clone(),
-        peak_fee: payload.peak_fee,
-        baseline_fee: payload.baseline_fee,
-        spike_ratio: payload.spike_ratio,
-        webhook_url: payload.webhook_url.clone(),
-        delivered,
-        triggered_at: Utc::now().to_rfc3339(),
-    };
+#[derive(Debug, Error)]
+pub enum WebhookError {
+    #[error("request failed: {0}")]
+    Request(String),
+    #[error("unexpected HTTP status: {0}")]
+    Status(u16),
+}
 
-    if let Err(err) = repository.log_alert_event(&event).await {
-        tracing::error!(
-            "Failed to log alert event for webhook {}: {}",
-            payload.webhook_url,
-            err
-        );
+impl WebhookDelivery {
+    pub fn new(url: String) -> Self {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECONDS))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+
+        Self { client, url }
+    }
+
+    pub async fn send(&self, payload: &AlertPayload) -> Result<(), WebhookError> {
+        self.send_with_retry(payload).await
+    }
+
+    pub async fn send_with_retry(&self, payload: &AlertPayload) -> Result<(), WebhookError> {
+        let mut last_error: Option<WebhookError> = None;
+
+        for attempt in 1..=MAX_ATTEMPTS {
+            match self
+                .client
+                .post(&self.url)
+                .json(payload)
+                .send()
+                .await
+                .map_err(|err| WebhookError::Request(err.to_string()))
+            {
+                Ok(response) if response.status().is_success() => {
+                    tracing::info!("Webhook delivered");
+                    return Ok(());
+                }
+                Ok(response) => {
+                    last_error = Some(WebhookError::Status(response.status().as_u16()));
+                }
+                Err(err) => {
+                    last_error = Some(err);
+                }
+            }
+
+            if attempt < MAX_ATTEMPTS {
+                tokio::time::sleep(Duration::from_secs(RETRY_DELAY_SECONDS)).await;
+            }
+        }
+
+        tracing::error!("Webhook delivery failed after 2 attempts");
+        Err(last_error.unwrap_or_else(|| {
+            WebhookError::Request("Webhook delivery failed with unknown error".to_string())
+        }))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::create_pool;
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{body_json, method, path},
+    };
+
+    fn build_payload() -> AlertPayload {
+        AlertPayload {
+            event: "fee_spike_detected".to_string(),
+            severity: "Major".to_string(),
+            peak_fee: 5000,
+            baseline_fee: 130.5,
+            spike_ratio: 38.3,
+            start_time: DateTime::parse_from_rfc3339("2025-01-14T10:45:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            duration_seconds: 120,
+            network: "mainnet".to_string(),
+            timestamp: DateTime::parse_from_rfc3339("2025-01-14T10:47:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        }
+    }
 
     #[tokio::test]
-    async fn dispatch_logs_event_to_database() {
-        let pool = create_pool("sqlite::memory:").await.unwrap();
-        let repo = Arc::new(FeeRepository::new(pool));
+    async fn send_posts_expected_payload() {
+        let server = MockServer::start().await;
+        let payload = build_payload();
 
-        let payload = AlertPayload {
-            config_id: None,
-            severity: "Major".to_string(),
-            peak_fee: 8000,
-            baseline_fee: 130.5,
-            spike_ratio: 61.3,
-            webhook_url: "https://hooks.example.com/test".to_string(),
-        };
+        Mock::given(method("POST"))
+            .and(path("/hook"))
+            .and(body_json(payload.clone()))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
 
-        dispatch(payload, repo.clone()).await;
+        let delivery = WebhookDelivery::new(format!("{}/hook", server.uri()));
+        delivery.send(&payload).await.unwrap();
+    }
 
-        let events = repo.query_alert_history(10, None, None).await.unwrap();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0].severity, "Major");
-        assert_eq!(events[0].peak_fee, 8000);
-        // delivered = false until Issue #31 implements the HTTP POST
-        assert!(!events[0].delivered);
+    #[tokio::test]
+    async fn send_retries_on_non_2xx_response() {
+        let server = MockServer::start().await;
+        let payload = build_payload();
+
+        Mock::given(method("POST"))
+            .and(path("/hook"))
+            .respond_with(ResponseTemplate::new(500))
+            .expect(2)
+            .mount(&server)
+            .await;
+
+        let delivery = WebhookDelivery::new(format!("{}/hook", server.uri()));
+        let result = delivery.send(&payload).await;
+        assert!(result.is_err());
     }
 }
