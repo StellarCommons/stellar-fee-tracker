@@ -70,6 +70,7 @@ impl AlertManager {
                 timestamp: Utc::now(),
             };
 
+            let delivery = delivery.clone();
             tokio::spawn(async move {
                 if let Err(err) = delivery.send_with_retry(&payload).await {
                     tracing::error!("Webhook dispatch failed: {}", err);

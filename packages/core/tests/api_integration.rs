@@ -739,7 +739,7 @@ async fn metrics_body_contains_metric_names() {
 
     assert_eq!(resp.status(), StatusCode::OK);
     let bytes = resp.into_body().collect().await.unwrap().to_bytes();
-    let body = String::from_utf8(bytes).unwrap();
+    let body = String::from_utf8(bytes.to_vec()).unwrap();
     assert!(body.contains("stellar_fee_tracker_polls_total"));
     assert!(body.contains("stellar_fee_tracker_http_request_duration_seconds"));
 }

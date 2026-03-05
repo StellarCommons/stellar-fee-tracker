@@ -158,7 +158,6 @@ impl FeeRepository {
 
         Ok(result.rows_affected())
     }
-}
 
     // ---- Alert config CRUD ----
 
@@ -383,7 +382,6 @@ impl FeeRepository {
         let count: i64 = row.try_get("cnt").unwrap_or(0);
         Ok(count)
     }
-
 }
 
 #[cfg(test)]

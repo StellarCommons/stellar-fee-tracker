@@ -247,7 +247,7 @@ mod integration_tests {
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         let bytes = resp.into_body().collect().await.unwrap().to_bytes();
-        let body = String::from_utf8(bytes).unwrap();
+        let body = String::from_utf8(bytes.to_vec()).unwrap();
 
         assert!(body.contains("stellar_fee_tracker_polls_total"));
         assert!(body.contains("stellar_fee_tracker_poll_errors_total"));
@@ -270,7 +270,7 @@ mod integration_tests {
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         let bytes = resp.into_body().collect().await.unwrap().to_bytes();
-        let body = String::from_utf8(bytes).unwrap();
+        let body = String::from_utf8(bytes.to_vec()).unwrap();
 
         // Prometheus text format: metric_name value\n
         assert!(body.contains("stellar_fee_tracker_polls_total 5"));

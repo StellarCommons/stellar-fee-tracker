@@ -60,6 +60,7 @@ pub struct HorizonFeeStats {
 pub struct FeeCharged {
     pub min: String,
     pub max: String,
+    #[serde(rename = "mode")]
     pub avg: String,
     pub p10: String,
     pub p25: String,

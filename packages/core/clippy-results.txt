@@ -1,0 +1,313 @@
+    Checking cfg-if v1.0.4
+    Checking smallvec v1.15.1
+    Checking pin-project-lite v0.2.16
+    Checking bytes v1.11.0
+    Checking scopeguard v1.2.0
+    Checking libc v0.2.180
+    Checking futures-core v0.3.31
+    Checking once_cell v1.21.3
+    Checking itoa v1.0.17
+   Compiling zerofrom v0.1.6
+   Compiling stable_deref_trait v1.2.1
+    Checking lock_api v0.4.14
+   Compiling yoke v0.8.1
+    Checking futures-sink v0.3.31
+    Checking memchr v2.7.6
+    Checking pin-utils v0.1.0
+    Checking core-foundation-sys v0.8.7
+    Checking tracing-core v0.1.36
+    Checking log v0.4.29
+    Checking futures-io v0.3.32
+   Compiling zerovec v0.11.5
+    Checking futures-task v0.3.31
+   Compiling litemap v0.8.1
+    Checking slab v0.4.11
+   Compiling writeable v0.6.2
+    Checking tracing v0.1.44
+   Compiling zerotrie v0.2.3
+    Checking serde_core v1.0.228
+    Checking futures-util v0.3.31
+    Checking parking_lot_core v0.9.12
+    Checking errno v0.3.14
+    Checking socket2 v0.6.2
+    Checking mio v1.1.1
+    Checking getrandom v0.3.4
+    Checking signal-hook-registry v1.4.8
+    Checking parking_lot v0.12.5
+    Checking bitflags v2.10.0
+    Checking tinystr v0.8.2
+    Checking potential_utf v0.1.4
+    Checking zerocopy v0.8.39
+   Compiling typenum v1.19.0
+    Checking icu_locale_core v2.1.1
+   Compiling icu_collections v2.1.1
+    Checking tokio v1.49.0
+   Compiling generic-array v0.14.7
+    Checking core-foundation v0.9.4
+    Checking futures-channel v0.3.31
+   Compiling icu_normalizer_data v2.1.1
+    Checking icu_provider v2.1.1
+   Compiling icu_properties_data v2.1.2
+    Checking rustix v1.1.3
+    Checking security-framework-sys v2.15.0
+   Compiling icu_normalizer v2.1.1
+   Compiling icu_properties v2.1.2
+    Checking serde v1.0.228
+    Checking percent-encoding v2.3.2
+    Checking hashbrown v0.16.1
+    Checking equivalent v1.0.2
+    Checking fastrand v2.3.0
+    Checking tower-service v0.3.3
+    Checking form_urlencoded v1.2.2
+    Checking tempfile v3.24.0
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+    Checking security-framework v2.11.1
+    Checking indexmap v2.13.0
+   Compiling idna_adapter v1.2.1
+    Checking http v1.4.0
+    Checking fnv v1.0.7
+   Compiling utf8_iter v1.0.4
+   Compiling minimal-lexical v0.2.1
+   Compiling allocator-api2 v0.2.21
+   Compiling nom v7.1.3
+    Checking http-body v1.0.1
+   Compiling idna v1.1.0
+    Checking native-tls v0.2.14
+    Checking ahash v0.8.12
+   Compiling digest v0.10.7
+    Checking httparse v1.10.1
+   Compiling cpufeatures v0.2.17
+   Compiling num-traits v0.2.19
+   Compiling zmij v1.0.17
+    Checking httpdate v1.0.3
+   Compiling unicode_categories v0.1.1
+   Compiling crc-catalog v2.4.0
+   Compiling serde_json v1.0.149
+    Checking hashbrown v0.14.5
+   Compiling atoi v2.0.0
+   Compiling sqlformat v0.2.6
+   Compiling crc v3.4.0
+   Compiling sha2 v0.10.9
+   Compiling crossbeam-queue v0.3.12
+   Compiling either v1.15.0
+   Compiling url v2.5.8
+   Compiling futures-intrusive v0.5.0
+    Checking crossbeam-utils v0.8.21
+    Checking http v0.2.12
+   Compiling hashlink v0.8.4
+   Compiling spin v0.9.8
+   Compiling thiserror v1.0.69
+   Compiling event-listener v2.5.3
+   Compiling hex v0.4.3
+   Compiling byteorder v1.5.0
+   Compiling flume v0.11.1
+    Checking tokio-util v0.7.18
+   Compiling libsqlite3-sys v0.27.0
+    Checking try-lock v0.2.5
+   Compiling urlencoding v2.1.3
+    Checking tower-layer v0.3.3
+   Compiling futures-executor v0.3.31
+    Checking utf8parse v0.2.2
+    Checking anstyle-parse v0.2.7
+    Checking want v0.3.1
+    Checking http-body v0.4.6
+    Checking tokio-stream v0.1.18
+    Checking http-body-util v0.1.3
+    Checking h2 v0.3.27
+    Checking getrandom v0.2.17
+    Checking socket2 v0.5.10
+   Compiling dotenvy v0.15.7
+    Checking atomic-waker v1.1.2
+    Checking anstyle-query v1.1.5
+    Checking mime v0.3.17
+    Checking colorchoice v1.0.4
+    Checking sync_wrapper v1.0.2
+    Checking anstyle v1.0.13
+    Checking lazy_static v1.5.0
+    Checking is_terminal_polyfill v1.70.2
+    Checking regex-syntax v0.8.8
+    Checking ryu v1.0.22
+    Checking hyper v1.8.1
+    Checking anstream v0.6.21
+    Checking serde_urlencoded v0.7.1
+    Checking rand_core v0.6.4
+    Checking system-configuration-sys v0.5.0
+    Checking tokio-native-tls v0.3.1
+    Checking ppv-lite86 v0.2.21
+    Checking base64 v0.21.7
+    Checking clap_lex v0.7.7
+    Checking strsim v0.11.1
+    Checking bitflags v1.3.2
+    Checking rustls-pemfile v1.0.4
+    Checking clap_builder v4.5.54
+    Checking system-configuration v0.5.1
+    Checking rand_chacha v0.3.1
+    Checking hyper-util v0.1.19
+    Checking axum-core v0.4.5
+    Checking protobuf v2.28.0
+    Checking sharded-slab v0.1.7
+    Checking tower v0.5.3
+    Checking regex-automata v0.4.13
+   Compiling sqlx-core v0.7.4
+    Checking serde_path_to_error v0.1.20
+    Checking tracing-log v0.2.0
+    Checking iana-time-zone v0.1.64
+    Checking thread_local v1.1.9
+    Checking encoding_rs v0.8.35
+    Checking nu-ansi-term v0.50.3
+    Checking ipnet v2.11.0
+    Checking sync_wrapper v0.1.2
+    Checking matchit v0.7.3
+    Checking chrono v0.4.43
+    Checking rand v0.8.5
+    Checking clap v4.5.54
+    Checking tower-http v0.5.2
+    Checking dashmap v6.1.0
+    Checking matchers v0.2.0
+    Checking tracing-subscriber v0.3.22
+    Checking axum v0.7.9
+    Checking prometheus v0.13.4
+    Checking hyper v0.14.32
+   Compiling sqlx-sqlite v0.7.4
+   Compiling sqlx-macros-core v0.7.4
+    Checking hyper-tls v0.5.0
+    Checking reqwest v0.11.27
+   Compiling sqlx-macros v0.7.4
+    Checking sqlx v0.7.4
+    Checking stellar-fee-tracker v0.1.0 (/Users/bigben7/Documents/ME/stellar-fee-tracker/packages/core)
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:167:9
+    |
+167 |         &self,
+    |         ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:183:37
+    |
+183 |     pub async fn list_alert_configs(&self) -> Result<Vec<AlertConfig>, sqlx::Error> {
+    |                                     ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:216:9
+    |
+216 |         &self,
+    |         ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:237:38
+    |
+237 |     pub async fn delete_alert_config(&self, id: i64) -> Result<bool, sqlx::Error> {
+    |                                      ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:251:34
+    |
+251 |     pub async fn log_alert_event(&self, event: &AlertEvent) -> Result<(), sqlx::Error> {
+    |                                  ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:275:9
+    |
+275 |         &self,
+    |         ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:353:9
+    |
+353 |         &self,
+    |         ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error[E0382]: use of moved value: `delivery`
+  --> packages/core/src/alerts/mod.rs:73:26
+   |
+37 |         let Some(delivery) = self.webhook_delivery.clone() else {
+   |                  -------- move occurs because `delivery` has type `alerts::webhook::WebhookDelivery`, which does not implement the `Copy` trait
+...
+41 |         for spike in &update.insights.congestion_trends.recent_spikes {
+   |         ------------------------------------------------------------- inside of this loop
+...
+73 |             tokio::spawn(async move {
+   |                          ^^^^^^^^^^ value moved here, in previous iteration of loop
+74 |                 if let Err(err) = delivery.send_with_retry(&payload).await {
+   |                                   -------- use occurs due to use in coroutine
+
+error[E0599]: no method named `insert_alert_config` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+  --> packages/core/src/api/alerts.rs:74:10
+   |
+73 |       let id = repo
+   |  ______________-
+74 | |         .insert_alert_config(&body.webhook_url, threshold)
+   | |         -^^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+   | |_________|
+   |
+
+error[E0599]: no method named `list_alert_configs` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+  --> packages/core/src/api/alerts.rs:90:24
+   |
+90 |     let configs = repo.list_alert_configs().await.map_err(|e| {
+   |                        ^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `list_alert_configs` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:107:24
+    |
+107 |     let configs = repo.list_alert_configs().await.map_err(|e| {
+    |                        ^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `update_alert_config` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:138:10
+    |
+137 |       let updated = repo
+    |  ___________________-
+138 | |         .update_alert_config(id, threshold, enabled)
+    | |         -^^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+    | |_________|
+    |
+
+error[E0599]: no method named `delete_alert_config` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:162:24
+    |
+162 |     let deleted = repo.delete_alert_config(id).await.map_err(|e| {
+    |                        ^^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `query_alert_history` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:225:14
+    |
+225 |         repo.query_alert_history(limit, severity, delivered),
+    |              ^^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `count_alert_events` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:226:14
+    |
+226 |         repo.count_alert_events(severity, delivered),
+    |              ^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0282]: type annotations needed
+   --> packages/core/src/api/alerts.rs:224:26
+    |
+224 |       let (items, total) = tokio::try_join!(
+    |  __________________________^
+225 | |         repo.query_alert_history(limit, severity, delivered),
+226 | |         repo.count_alert_events(severity, delivered),
+227 | |     )
+    | |_____^ cannot infer type
+    |
+    = note: this error originates in the macro `$crate::try_join` which comes from the expansion of the macro `tokio::try_join` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+Some errors have detailed explanations: E0282, E0382, E0599.
+For more information about an error, try `rustc --explain E0282`.
+error: could not compile `stellar-fee-tracker` (lib) due to 19 previous errors

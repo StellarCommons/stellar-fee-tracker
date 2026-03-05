@@ -1,0 +1,637 @@
+   Compiling stellar-fee-tracker v0.1.0 (/Users/bigben7/Documents/ME/stellar-fee-tracker/packages/core)
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:167:9
+    |
+167 |         &self,
+    |         ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:183:37
+    |
+183 |     pub async fn list_alert_configs(&self) -> Result<Vec<AlertConfig>, sqlx::Error> {
+    |                                     ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:216:9
+    |
+216 |         &self,
+    |         ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:237:38
+    |
+237 |     pub async fn delete_alert_config(&self, id: i64) -> Result<bool, sqlx::Error> {
+    |                                      ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:251:34
+    |
+251 |     pub async fn log_alert_event(&self, event: &AlertEvent) -> Result<(), sqlx::Error> {
+    |                                  ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:275:9
+    |
+275 |         &self,
+    |         ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error: `self` parameter is only allowed in associated functions
+   --> packages/core/src/repository.rs:353:9
+    |
+353 |         &self,
+    |         ^^^^^ not semantically valid as function parameter
+    |
+    = note: associated functions are those in `impl` or `trait` definitions
+
+error[E0382]: use of moved value: `delivery`
+  --> packages/core/src/alerts/mod.rs:73:26
+   |
+37 |         let Some(delivery) = self.webhook_delivery.clone() else {
+   |                  -------- move occurs because `delivery` has type `WebhookDelivery`, which does not implement the `Copy` trait
+...
+41 |         for spike in &update.insights.congestion_trends.recent_spikes {
+   |         ------------------------------------------------------------- inside of this loop
+...
+73 |             tokio::spawn(async move {
+   |                          ^^^^^^^^^^ value moved here, in previous iteration of loop
+74 |                 if let Err(err) = delivery.send_with_retry(&payload).await {
+   |                                   -------- use occurs due to use in coroutine
+
+error[E0382]: use of moved value: `delivery`
+  --> packages/core/src/alerts/mod.rs:73:26
+   |
+37 |         let Some(delivery) = self.webhook_delivery.clone() else {
+   |                  -------- move occurs because `delivery` has type `webhook::WebhookDelivery`, which does not implement the `Copy` trait
+...
+41 |         for spike in &update.insights.congestion_trends.recent_spikes {
+   |         ------------------------------------------------------------- inside of this loop
+...
+73 |             tokio::spawn(async move {
+   |                          ^^^^^^^^^^ value moved here, in previous iteration of loop
+74 |                 if let Err(err) = delivery.send_with_retry(&payload).await {
+   |                                   -------- use occurs due to use in coroutine
+
+error[E0599]: no method named `insert_alert_config` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+  --> packages/core/src/api/alerts.rs:74:10
+   |
+73 |       let id = repo
+   |  ______________-
+74 | |         .insert_alert_config(&body.webhook_url, threshold)
+   | |         -^^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+   | |_________|
+   |
+
+error[E0599]: no method named `insert_alert_config` found for struct `Arc<FeeRepository>` in the current scope
+  --> packages/core/src/api/alerts.rs:74:10
+   |
+73 |       let id = repo
+   |  ______________-
+74 | |         .insert_alert_config(&body.webhook_url, threshold)
+   | |         -^^^^^^^^^^^^^^^^^^^ method not found in `Arc<FeeRepository>`
+   | |_________|
+   |
+
+error[E0599]: no method named `list_alert_configs` found for struct `Arc<FeeRepository>` in the current scope
+  --> packages/core/src/api/alerts.rs:90:24
+   |
+90 |     let configs = repo.list_alert_configs().await.map_err(|e| {
+   |                        ^^^^^^^^^^^^^^^^^^ method not found in `Arc<FeeRepository>`
+
+error[E0599]: no method named `list_alert_configs` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+  --> packages/core/src/api/alerts.rs:90:24
+   |
+90 |     let configs = repo.list_alert_configs().await.map_err(|e| {
+   |                        ^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `list_alert_configs` found for struct `Arc<FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:107:24
+    |
+107 |     let configs = repo.list_alert_configs().await.map_err(|e| {
+    |                        ^^^^^^^^^^^^^^^^^^ method not found in `Arc<FeeRepository>`
+
+error[E0599]: no method named `list_alert_configs` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:107:24
+    |
+107 |     let configs = repo.list_alert_configs().await.map_err(|e| {
+    |                        ^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `update_alert_config` found for struct `Arc<FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:138:10
+    |
+137 |       let updated = repo
+    |  ___________________-
+138 | |         .update_alert_config(id, threshold, enabled)
+    | |         -^^^^^^^^^^^^^^^^^^^ method not found in `Arc<FeeRepository>`
+    | |_________|
+    |
+
+error[E0599]: no method named `update_alert_config` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:138:10
+    |
+137 |       let updated = repo
+    |  ___________________-
+138 | |         .update_alert_config(id, threshold, enabled)
+    | |         -^^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+    | |_________|
+    |
+
+error[E0599]: no method named `delete_alert_config` found for struct `Arc<FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:162:24
+    |
+162 |     let deleted = repo.delete_alert_config(id).await.map_err(|e| {
+    |                        ^^^^^^^^^^^^^^^^^^^ method not found in `Arc<FeeRepository>`
+
+error[E0599]: no method named `delete_alert_config` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:162:24
+    |
+162 |     let deleted = repo.delete_alert_config(id).await.map_err(|e| {
+    |                        ^^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `query_alert_history` found for struct `Arc<FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:225:14
+    |
+225 |         repo.query_alert_history(limit, severity, delivered),
+    |              ^^^^^^^^^^^^^^^^^^^ method not found in `Arc<FeeRepository>`
+
+error[E0599]: no method named `query_alert_history` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:225:14
+    |
+225 |         repo.query_alert_history(limit, severity, delivered),
+    |              ^^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `count_alert_events` found for struct `Arc<FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:226:14
+    |
+226 |         repo.count_alert_events(severity, delivered),
+    |              ^^^^^^^^^^^^^^^^^^ method not found in `Arc<FeeRepository>`
+
+error[E0599]: no method named `count_alert_events` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:226:14
+    |
+226 |         repo.count_alert_events(severity, delivered),
+    |              ^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0282]: type annotations needed
+   --> packages/core/src/api/alerts.rs:224:26
+    |
+224 |       let (items, total) = tokio::try_join!(
+    |  __________________________^
+225 | |         repo.query_alert_history(limit, severity, delivered),
+226 | |         repo.count_alert_events(severity, delivered),
+227 | |     )
+    | |_____^ cannot infer type
+    |
+    = note: this error originates in the macro `$crate::try_join` which comes from the expansion of the macro `tokio::try_join` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: no method named `log_alert_event` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:432:18
+    |
+432 |             repo.log_alert_event(e).await.unwrap();
+    |                  ^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `insert_alert_config` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:328:23
+    |
+328 |         let id = repo.insert_alert_config("https://example.com/hook", "Minor").await.unwrap();
+    |                       ^^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `insert_alert_config` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:349:23
+    |
+349 |         let id = repo.insert_alert_config("https://example.com/hook", "Minor").await.unwrap();
+    |                       ^^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `insert_alert_config` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:370:23
+    |
+370 |         let id = repo.insert_alert_config("https://example.com/hook", "Major").await.unwrap();
+    |                       ^^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0599]: no method named `list_alert_configs` found for struct `std::sync::Arc<repository::FeeRepository>` in the current scope
+   --> packages/core/src/api/alerts.rs:386:28
+    |
+386 |         let configs = repo.list_alert_configs().await.unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<repository::FeeRepository>`
+
+error[E0308]: mismatched types
+   --> packages/core/src/metrics.rs:250:38
+    |
+250 |         let body = String::from_utf8(bytes).unwrap();
+    |                    ----------------- ^^^^^- help: try using a conversion method: `.to_vec()`
+    |                    |                 |
+    |                    |                 expected `Vec<u8>`, found `Bytes`
+    |                    arguments to this function are incorrect
+    |
+    = note: expected struct `Vec<u8>`
+               found struct `axum::body::Bytes`
+note: associated function defined here
+   --> /rustc/29483883eed69d5fb4db01964cdf2af4d86e9cb2/library/alloc/src/string.rs:563:12
+
+error[E0308]: mismatched types
+   --> packages/core/src/metrics.rs:273:38
+    |
+273 |         let body = String::from_utf8(bytes).unwrap();
+    |                    ----------------- ^^^^^- help: try using a conversion method: `.to_vec()`
+    |                    |                 |
+    |                    |                 expected `Vec<u8>`, found `Bytes`
+    |                    arguments to this function are incorrect
+    |
+    = note: expected struct `Vec<u8>`
+               found struct `axum::body::Bytes`
+note: associated function defined here
+   --> /rustc/29483883eed69d5fb4db01964cdf2af4d86e9cb2/library/alloc/src/string.rs:563:12
+
+error[E0599]: no method named `insert_alert_config` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:532:14
+    |
+46  |   pub struct FeeRepository {
+    |   ------------------------ method `insert_alert_config` not found for this struct
+...
+531 |           let id = repo
+    |  __________________-
+532 | |             .insert_alert_config("https://hooks.example.com/webhook", "Major")
+    | |             -^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+    | |_____________|
+    |
+
+error[E0599]: no method named `list_alert_configs` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:536:28
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `list_alert_configs` not found for this struct
+...
+536 |         let configs = repo.list_alert_configs().await.unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `insert_alert_config` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:547:14
+    |
+46  |   pub struct FeeRepository {
+    |   ------------------------ method `insert_alert_config` not found for this struct
+...
+546 |           let id = repo
+    |  __________________-
+547 | |             .insert_alert_config("https://hooks.example.com/a", "Minor")
+    | |             -^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+    | |_____________|
+    |
+
+error[E0599]: no method named `update_alert_config` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:550:28
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `update_alert_config` not found for this struct
+...
+550 |         let updated = repo.update_alert_config(id, "Critical", false).await.unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `list_alert_configs` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:552:28
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `list_alert_configs` not found for this struct
+...
+552 |         let configs = repo.list_alert_configs().await.unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `update_alert_config` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:560:28
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `update_alert_config` not found for this struct
+...
+560 |         let updated = repo.update_alert_config(9999, "Major", true).await.unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `insert_alert_config` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:568:14
+    |
+46  |   pub struct FeeRepository {
+    |   ------------------------ method `insert_alert_config` not found for this struct
+...
+567 |           let id = repo
+    |  __________________-
+568 | |             .insert_alert_config("https://hooks.example.com/b", "Major")
+    | |             -^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+    | |_____________|
+    |
+
+error[E0599]: no method named `delete_alert_config` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:571:28
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `delete_alert_config` not found for this struct
+...
+571 |         let deleted = repo.delete_alert_config(id).await.unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `list_alert_configs` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:573:28
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `list_alert_configs` not found for this struct
+...
+573 |         let configs = repo.list_alert_configs().await.unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `delete_alert_config` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:581:28
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `delete_alert_config` not found for this struct
+...
+581 |         let deleted = repo.delete_alert_config(9999).await.unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `insert_alert_config` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:589:14
+    |
+46  |   pub struct FeeRepository {
+    |   ------------------------ method `insert_alert_config` not found for this struct
+...
+588 |           let id = repo
+    |  __________________-
+589 | |             .insert_alert_config("https://hooks.example.com/cycle", "Minor")
+    | |             -^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+    | |_____________|
+    |
+
+error[E0599]: no method named `list_alert_configs` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:592:28
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `list_alert_configs` not found for this struct
+...
+592 |         let configs = repo.list_alert_configs().await.unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `update_alert_config` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:594:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `update_alert_config` not found for this struct
+...
+594 |         repo.update_alert_config(id, "Major", true).await.unwrap();
+    |              ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `list_alert_configs` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:595:28
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `list_alert_configs` not found for this struct
+...
+595 |         let configs = repo.list_alert_configs().await.unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `delete_alert_config` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:597:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `delete_alert_config` not found for this struct
+...
+597 |         repo.delete_alert_config(id).await.unwrap();
+    |              ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `list_alert_configs` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:598:28
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `list_alert_configs` not found for this struct
+...
+598 |         let configs = repo.list_alert_configs().await.unwrap();
+    |                            ^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:631:18
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+631 |             repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+    |                  ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+Some errors have detailed explanations: E0282, E0382, E0599.
+For more information about an error, try `rustc --explain E0282`.
+error: could not compile `stellar-fee-tracker` (lib) due to 19 previous errors
+warning: build failed, waiting for other jobs to finish...
+error[E0599]: no method named `query_alert_history` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:633:27
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `query_alert_history` not found for this struct
+...
+633 |         let events = repo.query_alert_history(20, None, None).await.unwrap();
+    |                           ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:640:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+640 |         repo.log_alert_event(&make_event("Minor", true)).await.unwrap();
+    |              ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:641:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+641 |         repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+    |              ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:642:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+642 |         repo.log_alert_event(&make_event("Critical", false)).await.unwrap();
+    |              ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `query_alert_history` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:644:26
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `query_alert_history` not found for this struct
+...
+644 |         let major = repo.query_alert_history(20, Some("Major"), None).await.unwrap();
+    |                          ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `query_alert_history` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:648:29
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `query_alert_history` not found for this struct
+...
+648 |         let critical = repo.query_alert_history(20, Some("Critical"), None).await.unwrap();
+    |                             ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:656:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+656 |         repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+    |              ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:657:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+657 |         repo.log_alert_event(&make_event("Major", false)).await.unwrap();
+    |              ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:658:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+658 |         repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+    |              ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `query_alert_history` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:660:30
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `query_alert_history` not found for this struct
+...
+660 |         let delivered = repo.query_alert_history(20, None, Some(true)).await.unwrap();
+    |                              ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `query_alert_history` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:663:27
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `query_alert_history` not found for this struct
+...
+663 |         let failed = repo.query_alert_history(20, None, Some(false)).await.unwrap();
+    |                           ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:671:18
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+671 |             repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+    |                  ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `query_alert_history` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:674:27
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `query_alert_history` not found for this struct
+...
+674 |         let events = repo.query_alert_history(999, None, None).await.unwrap();
+    |                           ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:682:18
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+682 |             repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+    |                  ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `count_alert_events` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:684:26
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `count_alert_events` not found for this struct
+...
+684 |         let total = repo.count_alert_events(None, None).await.unwrap();
+    |                          ^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:691:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+691 |         repo.log_alert_event(&make_event("Minor", true)).await.unwrap();
+    |              ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:692:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+692 |         repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+    |              ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:693:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+693 |         repo.log_alert_event(&make_event("Critical", false)).await.unwrap();
+    |              ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `count_alert_events` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:695:32
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `count_alert_events` not found for this struct
+...
+695 |         let major_count = repo.count_alert_events(Some("Major"), None).await.unwrap();
+    |                                ^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `count_alert_events` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:698:36
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `count_alert_events` not found for this struct
+...
+698 |         let delivered_count = repo.count_alert_events(None, Some(true)).await.unwrap();
+    |                                    ^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `count_alert_events` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:701:36
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `count_alert_events` not found for this struct
+...
+701 |         let critical_failed = repo.count_alert_events(Some("Critical"), Some(false)).await.unwrap();
+    |                                    ^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `log_alert_event` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:708:14
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `log_alert_event` not found for this struct
+...
+708 |         repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+    |              ^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+error[E0599]: no method named `query_alert_history` found for struct `repository::FeeRepository` in the current scope
+   --> packages/core/src/repository.rs:709:27
+    |
+46  | pub struct FeeRepository {
+    | ------------------------ method `query_alert_history` not found for this struct
+...
+709 |         let events = repo.query_alert_history(1, None, None).await.unwrap();
+    |                           ^^^^^^^^^^^^^^^^^^^ method not found in `repository::FeeRepository`
+
+Some errors have detailed explanations: E0282, E0308, E0382, E0599.
+error: could not compile `stellar-fee-tracker` (lib test) due to 66 previous errors
