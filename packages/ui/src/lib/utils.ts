@@ -1,0 +1,63 @@
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+export function formatStroops(stroops: number | string): string {
+  const n = typeof stroops === 'string' ? parseFloat(stroops) : stroops
+  if (n >= 10_000_000) return `${(n / 10_000_000).toFixed(2)} XLM`
+  if (n >= 1_000) return `${n.toLocaleString()} str`
+  return `${n} str`
+}
+
+export function formatNumber(n: number): string {
+  return n.toLocaleString()
+}
+
+export function pctColor(pct: number | null): string {
+  if (pct === null) return 'text-text-secondary'
+  if (pct > 10)  return 'text-accent-red'
+  if (pct > 0)   return 'text-accent-yellow'
+  if (pct < -10) return 'text-accent-green'
+  if (pct < 0)   return 'text-accent-cyan'
+  return 'text-text-secondary'
+}
+
+export function pctArrow(pct: number | null): string {
+  if (pct === null) return '—'
+  if (pct > 0) return `▲ +${pct.toFixed(1)}%`
+  if (pct < 0) return `▼ ${pct.toFixed(1)}%`
+  return `→ 0.0%`
+}
+
+export function congestionColor(status: string): string {
+  switch (status) {
+    case 'Congested': return 'text-accent-red'
+    case 'Rising':    return 'text-accent-yellow'
+    case 'Declining': return 'text-accent-cyan'
+    default:          return 'text-accent-green'
+  }
+}
+
+export function congestionBg(status: string): string {
+  switch (status) {
+    case 'Congested': return 'bg-red-950/30 border-accent-red/30'
+    case 'Rising':    return 'bg-yellow-950/30 border-accent-yellow/30'
+    case 'Declining': return 'bg-cyan-950/30 border-accent-cyan/30'
+    default:          return 'bg-accent-dim border-accent-green/30'
+  }
+}
+
+export function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const s = Math.floor(diff / 1000)
+  if (s < 60)  return `${s}s ago`
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`
+  return `${Math.floor(s / 3600)}h ago`
+}
+
+export function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
