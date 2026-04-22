@@ -69,4 +69,40 @@ All errors implement `std::error::Error`. Common variants:
 - `InsightsError::InvalidData` - Malformed fee samples
 - `InsightsError::WindowTooSmall` - Config validation error
 
+## CLI Usage
+
+The CLI provides real-time fee monitoring and insights:
+
+```bash
+stellar-fee-tracker [OPTIONS]
+```
+
+### Options
+
+| Option                   | Description                                      | Default Value                     |
+|--------------------------|--------------------------------------------------|-----------------------------------|
+| `--network <NETWORK>`   | Stellar network (`mainnet` or `testnet`)        | `mainnet`                        |
+| `--horizon-url <URL>`    | Custom Horizon API URL                          | `https://horizon.stellar.org`    |
+| `--poll-interval <SECS>` | Polling interval in seconds                      | `10`                             |
+
+### Examples
+
+```bash
+# Default mainnet monitoring
+stellar-fee-tracker
+
+# Testnet with custom polling interval
+stellar-fee-tracker --network testnet --poll-interval 5
+
+# Custom Horizon URL
+stellar-fee-tracker --horizon-url "https://horizon-testnet.stellar.org"
+```
+
+### Output Format
+
+```
+Fees: base=100 stroops, avg=120 stroops, max=300 stroops, congestion=low
+Trend: stable, Samples: 45, Next update: 10s
+```
+
 ---
