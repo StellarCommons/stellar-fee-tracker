@@ -1,8 +1,7 @@
-use serde::Deserialize;
 use reqwest::Client;
+use serde::Deserialize;
 
 use crate::error::AppError;
-
 
 #[derive(Clone)]
 pub struct HorizonClient {
@@ -16,17 +15,13 @@ impl HorizonClient {
             .no_proxy()
             .build()
             .unwrap_or_else(|_| Client::new());
-        Self {
-            base_url,
-            http,
-        }
+        Self { base_url, http }
     }
 
     pub fn base_url(&self) -> &str {
         &self.base_url
     }
 }
-
 
 #[derive(Debug, Deserialize)]
 pub struct HorizonTransaction {
@@ -101,7 +96,6 @@ impl HorizonClient {
         Ok(stats)
     }
 }
-
 
 /// Wrapper structs for deserialising Horizon's `_embedded.records` envelope.
 #[derive(Debug, Deserialize)]

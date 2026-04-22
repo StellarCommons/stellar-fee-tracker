@@ -3,7 +3,7 @@
 use axum::{
     body::Body,
     extract::State,
-    http::{HeaderMap, StatusCode, header},
+    http::{header, HeaderMap, StatusCode},
     response::{Json, Response},
     routing::get,
     Router,
@@ -12,8 +12,8 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::insights::{CongestionTrends, FeeExtremes, FeeInsightsEngine, RollingAverages};
 use super::headers::{cache_control, compute_etag, if_none_match_matches, last_modified};
+use crate::insights::{CongestionTrends, FeeExtremes, FeeInsightsEngine, RollingAverages};
 
 /// Shared state for the insights API
 pub type InsightsState = Arc<RwLock<FeeInsightsEngine>>;
@@ -97,7 +97,7 @@ async fn get_insights_health(
     State(engine): State<InsightsState>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let engine = engine.read().await;
-    
+
     let health_info = serde_json::json!({
         "status": "healthy",
         "last_update": engine.get_last_update(),
@@ -107,6 +107,6 @@ async fn get_insights_health(
             "spike_threshold": engine.get_config().spike_detection.threshold_multiplier
         }
     });
-    
+
     Ok(Json(health_info))
 }

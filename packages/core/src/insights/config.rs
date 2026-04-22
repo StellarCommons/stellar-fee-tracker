@@ -1,8 +1,8 @@
 //! Configuration for fee insights system
 
+use crate::insights::types::TimeWindow;
 use chrono::Duration;
 use serde::{Deserialize, Serialize};
-use crate::insights::types::TimeWindow;
 
 /// Configuration for the fee insights engine
 #[derive(Debug, Clone, Serialize, Deserialize)]

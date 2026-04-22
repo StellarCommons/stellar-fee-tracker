@@ -107,8 +107,8 @@ mod tests {
     use super::*;
     use chrono::{DateTime, Duration, Utc};
     use wiremock::{
-        Mock, MockServer, ResponseTemplate,
         matchers::{method, path},
+        Mock, MockServer, ResponseTemplate,
     };
 
     use crate::insights::{

@@ -1,28 +1,25 @@
 //! Fee Data Provider Interface
-//! 
+//!
 //! Provides abstraction layer for different fee data sources
 
+use crate::insights::{error::ProviderError, types::FeeDataPoint};
 use async_trait::async_trait;
-use crate::insights::{
-    types::FeeDataPoint,
-    error::ProviderError,
-};
 
 /// Trait for fee data providers to ensure data source independence
 #[async_trait]
 pub trait FeeDataProvider {
     /// Fetch the latest fee data from the provider
     async fn fetch_latest_fees(&self) -> Result<Vec<FeeDataPoint>, ProviderError>;
-    
+
     /// Get the name of this provider for logging/debugging
     fn provider_name(&self) -> &str;
-    
+
     /// Check if the provider is currently available
     async fn health_check(&self) -> Result<(), ProviderError> {
         // Default implementation - just try to fetch data
         self.fetch_latest_fees().await.map(|_| ())
     }
-    
+
     /// Get provider-specific configuration or metadata
     fn get_metadata(&self) -> ProviderMetadata {
         ProviderMetadata::default()

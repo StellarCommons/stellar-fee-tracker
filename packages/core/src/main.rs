@@ -5,39 +5,39 @@
 mod alerts;
 mod api;
 mod cache;
-mod metrics;
 mod cli;
 mod config;
 mod db;
 mod error;
 mod insights;
 mod logging;
+mod metrics;
 mod middleware;
 mod repository;
-mod services;
 mod scheduler;
+mod services;
 mod store;
 
 use std::sync::Arc;
 
-use axum::{routing::get, Router};
 use axum::http::{HeaderName, Method};
+use axum::{routing::get, Router};
 use clap::Parser;
 use dotenvy::dotenv;
 use std::time::Duration;
 use tokio::sync::{Mutex, RwLock};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
+use crate::alerts::AlertManager;
 use crate::cache::ResponseCache;
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::AppError;
-use crate::insights::{FeeInsightsEngine, InsightsConfig, HorizonFeeDataProvider};
+use crate::insights::{FeeInsightsEngine, HorizonFeeDataProvider, InsightsConfig};
 use crate::logging::init_logging;
 use crate::metrics::AppMetrics;
-use crate::alerts::AlertManager;
 use crate::middleware::auth::require_api_key;
-use crate::middleware::rate_limit::{RateLimitState, enforce_rate_limit};
+use crate::middleware::rate_limit::{enforce_rate_limit, RateLimitState};
 use crate::repository::FeeRepository;
 use crate::scheduler::run_fee_polling_with_retry;
 use crate::services::horizon::HorizonClient;
@@ -90,12 +90,10 @@ async fn main() {
     tracing::info!("Database initialised: {}", config.database_url);
 
     // ---- Metrics ----
-    let app_metrics = Arc::new(
-        AppMetrics::new().unwrap_or_else(|err| {
-            tracing::error!("Failed to initialise Prometheus metrics: {}", err);
-            std::process::exit(1);
-        }),
-    );
+    let app_metrics = Arc::new(AppMetrics::new().unwrap_or_else(|err| {
+        tracing::error!("Failed to initialise Prometheus metrics: {}", err);
+        std::process::exit(1);
+    }));
 
     let repository = Arc::new(FeeRepository::new(db_pool));
 
@@ -105,9 +103,9 @@ async fn main() {
 
     let fee_store = Arc::new(RwLock::new(FeeHistoryStore::new(DEFAULT_CAPACITY)));
 
-    let insights_engine = Arc::new(RwLock::new(
-        FeeInsightsEngine::new(InsightsConfig::default()),
-    ));
+    let insights_engine = Arc::new(RwLock::new(FeeInsightsEngine::new(
+        InsightsConfig::default(),
+    )));
     let current_fees_cache = Arc::new(Mutex::new(ResponseCache::new(Duration::from_secs(
         config.cache_ttl_seconds,
     ))));
@@ -134,9 +132,7 @@ async fn main() {
         Ok(_) => tracing::info!("No historical fee data found — starting cold"),
         Err(err) => tracing::warn!("Failed to rehydrate store from database: {}", err),
     }
-    let horizon_provider = Arc::new(HorizonFeeDataProvider::new(
-        (*horizon_client).clone(),
-    ));
+    let horizon_provider = Arc::new(HorizonFeeDataProvider::new((*horizon_client).clone()));
     let fee_stats_provider: Arc<dyn api::fees::FeeStatsProvider + Send + Sync> =
         horizon_client.clone();
     let alert_manager = Arc::new(AlertManager::new(
@@ -195,8 +191,7 @@ async fn main() {
     // Clone for metrics endpoint closure
     let metrics_for_handler = app_metrics.clone();
 
-    let app = Router::new()
-        .route("/health", get(api::health::health));
+    let app = Router::new().route("/health", get(api::health::health));
 
     let protected_routes = Router::new()
         .route(
@@ -225,14 +220,31 @@ async fn main() {
             }),
         )
         .merge(fees_router)
-        .merge(api::insights::create_insights_router(insights_engine.clone()))
+        .merge(api::insights::create_insights_router(
+            insights_engine.clone(),
+        ))
         .merge(
             Router::new()
-                .route("/alerts/config", axum::routing::post(api::alerts::create_alert))
-                .route("/alerts/config", axum::routing::get(api::alerts::list_alerts))
-                .route("/alerts/config/:id", axum::routing::patch(api::alerts::update_alert))
-                .route("/alerts/config/:id", axum::routing::delete(api::alerts::delete_alert))
-                .route("/alerts/history", axum::routing::get(api::alerts::get_alert_history))
+                .route(
+                    "/alerts/config",
+                    axum::routing::post(api::alerts::create_alert),
+                )
+                .route(
+                    "/alerts/config",
+                    axum::routing::get(api::alerts::list_alerts),
+                )
+                .route(
+                    "/alerts/config/:id",
+                    axum::routing::patch(api::alerts::update_alert),
+                )
+                .route(
+                    "/alerts/config/:id",
+                    axum::routing::delete(api::alerts::delete_alert),
+                )
+                .route(
+                    "/alerts/history",
+                    axum::routing::get(api::alerts::get_alert_history),
+                )
                 .with_state(repository.clone()),
         );
 
@@ -273,8 +285,8 @@ async fn main() {
                 listener,
                 app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
             )
-                .await
-                .unwrap_or_else(|err| tracing::error!("Server error: {}", err));
+            .await
+            .unwrap_or_else(|err| tracing::error!("Server error: {}", err));
         },
         run_fee_polling_with_retry(
             horizon_provider,

@@ -1,5 +1,5 @@
 //! Comprehensive tests for fee metrics core calculations
-//! 
+//!
 //! This module contains all unit tests and property-based tests for the fee insights engine
 //! core calculations, including rolling averages, extremes tracking, and congestion detection.
 
@@ -8,15 +8,15 @@
 mod tests {
     use super::super::*;
     use crate::insights::{
-        engine::FeeInsightsEngine,
         calculator::RollingAverageCalculator,
-        tracker::ExtremesTracker,
+        config::{AverageConfig, ExtremesConfig, InsightsConfig, SpikeConfig},
         detector::CongestionDetector,
-        config::{AverageConfig, ExtremesConfig, SpikeConfig, InsightsConfig},
-        types::*,
+        engine::FeeInsightsEngine,
         error::InsightsError,
+        tracker::ExtremesTracker,
+        types::*,
     };
-    use chrono::{Utc, Duration};
+    use chrono::{Duration, Utc};
     use proptest::prelude::*;
 
     // Test data generators
@@ -27,29 +27,29 @@ mod tests {
                 Utc::now() - Duration::seconds(secs.abs() % (86400 * 30)) // Within last 30 days
             }),
             "[a-f0-9]{64}".prop_map(|s| s), // Transaction hash
-            1u64..1_000_000u64, // Ledger sequence
-        ).prop_map(|(fee_amount, timestamp, transaction_hash, ledger_sequence)| {
-            FeeDataPoint {
-                fee_amount,
-                timestamp,
-                transaction_hash,
-                ledger_sequence,
-            }
-        })
+            1u64..1_000_000u64,             // Ledger sequence
+        )
+            .prop_map(
+                |(fee_amount, timestamp, transaction_hash, ledger_sequence)| FeeDataPoint {
+                    fee_amount,
+                    timestamp,
+                    transaction_hash,
+                    ledger_sequence,
+                },
+            )
     }
 
     fn time_window_strategy() -> impl Strategy<Value = TimeWindow> {
         (
             prop::collection::vec("[a-z]+", 1..10).prop_map(|words| words.join("_")),
-            1i64..86400i64, // Duration in seconds (1 second to 1 day)
+            1i64..86400i64,   // Duration in seconds (1 second to 1 day)
             1usize..100usize, // Min samples
-        ).prop_map(|(name, duration_secs, min_samples)| {
-            TimeWindow {
+        )
+            .prop_map(|(name, duration_secs, min_samples)| TimeWindow {
                 name,
                 duration: Duration::seconds(duration_secs),
                 min_samples,
-            }
-        })
+            })
     }
 
     // =============================================================================
@@ -59,16 +59,14 @@ mod tests {
     #[test]
     fn test_rolling_average_calculator_creation() {
         let config = AverageConfig::default();
-        let time_windows = vec![
-            TimeWindow {
-                name: "test".to_string(),
-                duration: Duration::hours(1),
-                min_samples: 5,
-            }
-        ];
-        
+        let time_windows = vec![TimeWindow {
+            name: "test".to_string(),
+            duration: Duration::hours(1),
+            min_samples: 5,
+        }];
+
         let _calculator = RollingAverageCalculator::new(config, time_windows);
-        
+
         // Should be created successfully (just verify no panic)
     }
 
@@ -92,9 +90,9 @@ mod tests {
                 min_samples: 2,
             },
         ];
-        
+
         let mut calculator = RollingAverageCalculator::new(config, time_windows);
-        
+
         // Add some test data
         let now = Utc::now();
         let fee_points = vec![
@@ -111,13 +109,13 @@ mod tests {
                 ledger_sequence: 2,
             },
         ];
-        
+
         for point in fee_points {
             calculator.add_data_point(point);
         }
-        
+
         let averages = calculator.calculate_averages().unwrap();
-        
+
         // Should calculate correct average: (100 + 200) / 2 = 150
         assert_eq!(averages.short_term.value, 150.0);
         assert_eq!(averages.short_term.sample_count, 2);
@@ -144,9 +142,9 @@ mod tests {
                 min_samples: 5,
             },
         ];
-        
+
         let mut calculator = RollingAverageCalculator::new(config, time_windows);
-        
+
         // Add only 2 data points (less than required 5)
         let now = Utc::now();
         calculator.add_data_point(FeeDataPoint {
@@ -161,9 +159,9 @@ mod tests {
             transaction_hash: "hash2".to_string(),
             ledger_sequence: 2,
         });
-        
+
         let averages = calculator.calculate_averages().unwrap();
-        
+
         // Should be marked as partial
         assert!(averages.short_term.is_partial);
         assert_eq!(averages.short_term.sample_count, 2);
@@ -189,11 +187,11 @@ mod tests {
                 min_samples: 1,
             },
         ];
-        
+
         let mut calculator = RollingAverageCalculator::new(config, time_windows);
-        
+
         let now = Utc::now();
-        
+
         // Add old data point (outside window)
         calculator.add_data_point(FeeDataPoint {
             fee_amount: 100,
@@ -201,7 +199,7 @@ mod tests {
             transaction_hash: "hash1".to_string(),
             ledger_sequence: 1,
         });
-        
+
         // Add recent data point (inside window)
         calculator.add_data_point(FeeDataPoint {
             fee_amount: 200,
@@ -209,9 +207,9 @@ mod tests {
             transaction_hash: "hash2".to_string(),
             ledger_sequence: 2,
         });
-        
+
         let averages = calculator.calculate_averages().unwrap();
-        
+
         // Should only include the recent data point
         assert_eq!(averages.short_term.value, 200.0);
         assert_eq!(averages.short_term.sample_count, 1);
@@ -240,11 +238,11 @@ mod tests {
                 min_samples: 1,
             },
         ];
-        
+
         let mut calculator = RollingAverageCalculator::new(config, time_windows);
-        
+
         let now = Utc::now();
-        
+
         // Add 5 data points (more than buffer capacity of 3)
         for i in 0..5 {
             calculator.add_data_point(FeeDataPoint {
@@ -254,12 +252,12 @@ mod tests {
                 ledger_sequence: i + 1,
             });
         }
-        
+
         let averages = calculator.calculate_averages().unwrap();
-        
+
         // Should only have 3 data points (buffer capacity)
         assert_eq!(averages.short_term.sample_count, 3);
-        
+
         // Should contain the most recent 3 points: 500, 400, 300
         // Average should be (500 + 400 + 300) / 3 = 400
         assert_eq!(averages.short_term.value, 400.0);
@@ -285,10 +283,10 @@ mod tests {
                 min_samples: 1,
             },
         ];
-        
+
         let calculator = RollingAverageCalculator::new(config, time_windows);
         let averages = calculator.calculate_averages().unwrap();
-        
+
         // Should return zero values with appropriate metadata
         assert_eq!(averages.short_term.value, 0.0);
         assert_eq!(averages.short_term.sample_count, 0);
@@ -303,7 +301,7 @@ mod tests {
     fn test_extremes_tracker_creation() {
         let config = ExtremesConfig::default();
         let tracker = ExtremesTracker::new(config);
-        
+
         // Should be created successfully
         assert!(!tracker.has_current_data());
     }
@@ -312,7 +310,7 @@ mod tests {
     fn test_extremes_identification() {
         let config = ExtremesConfig::default();
         let mut tracker = ExtremesTracker::new(config);
-        
+
         let now = Utc::now();
         let fee_data = vec![
             FeeDataPoint {
@@ -329,15 +327,15 @@ mod tests {
             },
             FeeDataPoint {
                 fee_amount: 300, // Maximum
-                timestamp: now, // Use current time
+                timestamp: now,  // Use current time
                 transaction_hash: "hash3".to_string(),
                 ledger_sequence: 3,
             },
         ];
-        
+
         tracker.update_with_fees(&fee_data).unwrap();
         let extremes = tracker.get_current_extremes().unwrap();
-        
+
         // Should correctly identify min and max
         assert_eq!(extremes.current_min.value, 50);
         assert_eq!(extremes.current_min.transaction_hash, "hash2");
@@ -349,26 +347,26 @@ mod tests {
     fn test_extremes_tie_breaking() {
         let config = ExtremesConfig::default();
         let mut tracker = ExtremesTracker::new(config);
-        
+
         let now = Utc::now();
         let fee_data = vec![
             FeeDataPoint {
-                fee_amount: 100, // First occurrence of min
+                fee_amount: 100,                       // First occurrence of min
                 timestamp: now - Duration::seconds(1), // Slightly earlier
                 transaction_hash: "hash1".to_string(),
                 ledger_sequence: 1,
             },
             FeeDataPoint {
                 fee_amount: 100, // Second occurrence of min (more recent)
-                timestamp: now, // More recent
+                timestamp: now,  // More recent
                 transaction_hash: "hash2".to_string(),
                 ledger_sequence: 2,
             },
         ];
-        
+
         tracker.update_with_fees(&fee_data).unwrap();
         let extremes = tracker.get_current_extremes().unwrap();
-        
+
         // Should store the most recent occurrence
         assert_eq!(extremes.current_min.value, 100);
         assert_eq!(extremes.current_min.transaction_hash, "hash2");
@@ -378,20 +376,18 @@ mod tests {
     fn test_extremes_metadata_preservation() {
         let config = ExtremesConfig::default();
         let mut tracker = ExtremesTracker::new(config);
-        
+
         let now = Utc::now();
-        let fee_data = vec![
-            FeeDataPoint {
-                fee_amount: 200,
-                timestamp: now,
-                transaction_hash: "test_hash_123".to_string(),
-                ledger_sequence: 12345,
-            },
-        ];
-        
+        let fee_data = vec![FeeDataPoint {
+            fee_amount: 200,
+            timestamp: now,
+            transaction_hash: "test_hash_123".to_string(),
+            ledger_sequence: 12345,
+        }];
+
         tracker.update_with_fees(&fee_data).unwrap();
         let extremes = tracker.get_current_extremes().unwrap();
-        
+
         // Should preserve all metadata
         assert_eq!(extremes.current_min.transaction_hash, "test_hash_123");
         assert_eq!(extremes.current_max.transaction_hash, "test_hash_123");
@@ -407,7 +403,7 @@ mod tests {
     fn test_congestion_detector_creation() {
         let config = SpikeConfig::default();
         let detector = CongestionDetector::new(config);
-        
+
         // Should be created successfully
         assert_eq!(detector.get_recent_spikes().len(), 0);
     }
@@ -420,10 +416,10 @@ mod tests {
             congestion_window: Duration::hours(1),
         };
         let detector = CongestionDetector::new(config);
-        
+
         let now = Utc::now();
         let baseline = 100.0;
-        
+
         let fee_data = vec![
             FeeDataPoint {
                 fee_amount: 100, // Normal fee
@@ -450,9 +446,9 @@ mod tests {
                 ledger_sequence: 4,
             },
         ];
-        
+
         let spikes = detector.detect_spikes(&fee_data, baseline).unwrap();
-        
+
         // Should detect one spike
         assert_eq!(spikes.len(), 1);
         assert_eq!(spikes[0].peak_fee, 300);
@@ -464,12 +460,18 @@ mod tests {
     fn test_spike_severity_classification() {
         let config = SpikeConfig::default();
         let detector = CongestionDetector::new(config);
-        
+
         // Test different severity levels
         assert_eq!(detector.classify_spike_severity(1.5), SpikeSeverity::Minor);
-        assert_eq!(detector.classify_spike_severity(3.5), SpikeSeverity::Moderate);
+        assert_eq!(
+            detector.classify_spike_severity(3.5),
+            SpikeSeverity::Moderate
+        );
         assert_eq!(detector.classify_spike_severity(7.0), SpikeSeverity::Major);
-        assert_eq!(detector.classify_spike_severity(15.0), SpikeSeverity::Critical);
+        assert_eq!(
+            detector.classify_spike_severity(15.0),
+            SpikeSeverity::Critical
+        );
     }
 
     #[test]
@@ -480,10 +482,10 @@ mod tests {
             congestion_window: Duration::hours(1),
         };
         let detector = CongestionDetector::new(config);
-        
+
         let now = Utc::now();
         let baseline = 200.0;
-        
+
         let fee_data = vec![
             FeeDataPoint {
                 fee_amount: 600, // 3x baseline, should exceed threshold of 2.0
@@ -498,9 +500,9 @@ mod tests {
                 ledger_sequence: 2,
             },
         ];
-        
+
         let spikes = detector.detect_spikes(&fee_data, baseline).unwrap();
-        
+
         assert_eq!(spikes.len(), 1);
         assert_eq!(spikes[0].spike_ratio, 3.0);
         assert_eq!(spikes[0].baseline_fee, baseline);
@@ -514,45 +516,42 @@ mod tests {
     fn test_fee_amount_validation() {
         let config = InsightsConfig::default();
         let engine = FeeInsightsEngine::new(config);
-        
+
         // Test zero fee amount (should fail)
-        let invalid_data = vec![
-            FeeDataPoint {
-                fee_amount: 0,
-                timestamp: Utc::now(),
-                transaction_hash: "hash1".to_string(),
-                ledger_sequence: 1,
-            }
-        ];
-        
+        let invalid_data = vec![FeeDataPoint {
+            fee_amount: 0,
+            timestamp: Utc::now(),
+            transaction_hash: "hash1".to_string(),
+            ledger_sequence: 1,
+        }];
+
         let result = engine.validate_fee_data(&invalid_data);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Zero fee amount"));
-        
+
         // Test excessively large fee amount (should fail)
-        let invalid_data = vec![
-            FeeDataPoint {
-                fee_amount: 2_000_000_000, // > 1 billion stroops
-                timestamp: Utc::now(),
-                transaction_hash: "hash1".to_string(),
-                ledger_sequence: 1,
-            }
-        ];
-        
+        let invalid_data = vec![FeeDataPoint {
+            fee_amount: 2_000_000_000, // > 1 billion stroops
+            timestamp: Utc::now(),
+            transaction_hash: "hash1".to_string(),
+            ledger_sequence: 1,
+        }];
+
         let result = engine.validate_fee_data(&invalid_data);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Unreasonably large fee amount"));
-        
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unreasonably large fee amount"));
+
         // Test valid fee amount (should pass)
-        let valid_data = vec![
-            FeeDataPoint {
-                fee_amount: 100,
-                timestamp: Utc::now(),
-                transaction_hash: "hash1".to_string(),
-                ledger_sequence: 1,
-            }
-        ];
-        
+        let valid_data = vec![FeeDataPoint {
+            fee_amount: 100,
+            timestamp: Utc::now(),
+            transaction_hash: "hash1".to_string(),
+            ledger_sequence: 1,
+        }];
+
         let result = engine.validate_fee_data(&valid_data);
         assert!(result.is_ok());
     }
@@ -561,31 +560,27 @@ mod tests {
     fn test_timestamp_validation() {
         let config = InsightsConfig::default();
         let engine = FeeInsightsEngine::new(config);
-        
+
         // Test future timestamp (should fail)
-        let invalid_data = vec![
-            FeeDataPoint {
-                fee_amount: 100,
-                timestamp: Utc::now() + Duration::hours(2), // 2 hours in future
-                transaction_hash: "hash1".to_string(),
-                ledger_sequence: 1,
-            }
-        ];
-        
+        let invalid_data = vec![FeeDataPoint {
+            fee_amount: 100,
+            timestamp: Utc::now() + Duration::hours(2), // 2 hours in future
+            transaction_hash: "hash1".to_string(),
+            ledger_sequence: 1,
+        }];
+
         let result = engine.validate_fee_data(&invalid_data);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Future timestamp"));
-        
+
         // Test valid timestamp (should pass)
-        let valid_data = vec![
-            FeeDataPoint {
-                fee_amount: 100,
-                timestamp: Utc::now() - Duration::minutes(30),
-                transaction_hash: "hash1".to_string(),
-                ledger_sequence: 1,
-            }
-        ];
-        
+        let valid_data = vec![FeeDataPoint {
+            fee_amount: 100,
+            timestamp: Utc::now() - Duration::minutes(30),
+            transaction_hash: "hash1".to_string(),
+            ledger_sequence: 1,
+        }];
+
         let result = engine.validate_fee_data(&valid_data);
         assert!(result.is_ok());
     }
@@ -594,31 +589,30 @@ mod tests {
     fn test_transaction_hash_validation() {
         let config = InsightsConfig::default();
         let engine = FeeInsightsEngine::new(config);
-        
+
         // Test empty transaction hash (should fail)
-        let invalid_data = vec![
-            FeeDataPoint {
-                fee_amount: 100,
-                timestamp: Utc::now(),
-                transaction_hash: "".to_string(),
-                ledger_sequence: 1,
-            }
-        ];
-        
+        let invalid_data = vec![FeeDataPoint {
+            fee_amount: 100,
+            timestamp: Utc::now(),
+            transaction_hash: "".to_string(),
+            ledger_sequence: 1,
+        }];
+
         let result = engine.validate_fee_data(&invalid_data);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Empty transaction hash"));
-        
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Empty transaction hash"));
+
         // Test valid transaction hash (should pass)
-        let valid_data = vec![
-            FeeDataPoint {
-                fee_amount: 100,
-                timestamp: Utc::now(),
-                transaction_hash: "valid_hash_123".to_string(),
-                ledger_sequence: 1,
-            }
-        ];
-        
+        let valid_data = vec![FeeDataPoint {
+            fee_amount: 100,
+            timestamp: Utc::now(),
+            transaction_hash: "valid_hash_123".to_string(),
+            ledger_sequence: 1,
+        }];
+
         let result = engine.validate_fee_data(&valid_data);
         assert!(result.is_ok());
     }
@@ -647,11 +641,11 @@ mod tests {
                 min_samples: 1,
             },
         ];
-        
+
         let mut calculator = RollingAverageCalculator::new(config, time_windows);
-        
+
         let now = Utc::now();
-        
+
         // Test with large fee amounts (but within valid range)
         let large_fees = vec![
             FeeDataPoint {
@@ -667,13 +661,13 @@ mod tests {
                 ledger_sequence: 2,
             },
         ];
-        
+
         for fee in large_fees {
             calculator.add_data_point(fee);
         }
-        
+
         let averages = calculator.calculate_averages().unwrap();
-        
+
         // Should maintain accuracy with large numbers
         let expected_average = (999_999_999.0 + 999_999_998.0) / 2.0;
         assert_eq!(averages.short_term.value, expected_average);
@@ -685,15 +679,15 @@ mod tests {
         let fee_amount: u64 = 123_456_789;
         let converted: f64 = fee_amount as f64;
         let back_converted: u64 = converted as u64;
-        
+
         // Should preserve value for reasonable fee amounts
         assert_eq!(fee_amount, back_converted);
-        
+
         // Test with maximum safe integer in f64
         let max_safe: u64 = (1u64 << 53) - 1; // 2^53 - 1
         let converted_max: f64 = max_safe as f64;
         let back_converted_max: u64 = converted_max as u64;
-        
+
         assert_eq!(max_safe, back_converted_max);
     }
 
@@ -701,47 +695,49 @@ mod tests {
     fn test_division_by_zero_handling() {
         let config = SpikeConfig::default();
         let detector = CongestionDetector::new(config);
-        
+
         let now = Utc::now();
-        let fee_data = vec![
-            FeeDataPoint {
-                fee_amount: 100,
-                timestamp: now,
-                transaction_hash: "hash1".to_string(),
-                ledger_sequence: 1,
-            }
-        ];
-        
+        let fee_data = vec![FeeDataPoint {
+            fee_amount: 100,
+            timestamp: now,
+            transaction_hash: "hash1".to_string(),
+            ledger_sequence: 1,
+        }];
+
         // Test with zero baseline (should return error)
         let result = detector.detect_spikes(&fee_data, 0.0);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Baseline must be positive"));
-        
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Baseline must be positive"));
+
         // Test with negative baseline (should return error)
         let result = detector.detect_spikes(&fee_data, -100.0);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Baseline must be positive"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Baseline must be positive"));
     }
 
     #[test]
     fn test_decimal_precision_maintenance() {
         let config = SpikeConfig::default();
         let detector = CongestionDetector::new(config);
-        
+
         let now = Utc::now();
         let baseline = 100.0;
-        
-        let fee_data = vec![
-            FeeDataPoint {
-                fee_amount: 333, // Should give ratio of 3.33
-                timestamp: now,
-                transaction_hash: "hash1".to_string(),
-                ledger_sequence: 1,
-            }
-        ];
-        
+
+        let fee_data = vec![FeeDataPoint {
+            fee_amount: 333, // Should give ratio of 3.33
+            timestamp: now,
+            transaction_hash: "hash1".to_string(),
+            ledger_sequence: 1,
+        }];
+
         let spikes = detector.detect_spikes(&fee_data, baseline).unwrap();
-        
+
         if !spikes.is_empty() {
             // Should maintain decimal precision
             assert_eq!(spikes[0].spike_ratio, 3.33);
@@ -762,13 +758,13 @@ mod tests {
         ) {
             let config = AverageConfig::default();
             let now = Utc::now();
-            
+
             // Adjust all timestamps to be within the time window
             let adjusted_fee_points: Vec<FeeDataPoint> = fee_points.into_iter().map(|mut point| {
                 point.timestamp = now - Duration::minutes((rand::random::<u64>() % 60) as i64); // Within last hour
                 point
             }).collect();
-            
+
             let time_windows = vec![
                 TimeWindow {
                     name: "short_term".to_string(),
@@ -786,20 +782,20 @@ mod tests {
                     min_samples: 1,
                 },
             ];
-            
+
             let mut calculator = RollingAverageCalculator::new(config, time_windows);
-            
+
             // Add all fee points
             for point in &adjusted_fee_points {
                 calculator.add_data_point(point.clone());
             }
-            
+
             let averages = calculator.calculate_averages().unwrap();
-            
+
             // Calculate expected average manually
             let total: u64 = adjusted_fee_points.iter().map(|p| p.fee_amount).sum();
             let expected_average = total as f64 / adjusted_fee_points.len() as f64;
-            
+
             // Should match calculated average
             prop_assert_eq!(averages.short_term.value, expected_average);
             prop_assert_eq!(averages.short_term.sample_count, adjusted_fee_points.len());
@@ -812,14 +808,14 @@ mod tests {
         ) {
             let config = ExtremesConfig::default();
             let mut tracker = ExtremesTracker::new(config);
-            
+
             tracker.update_with_fees(&fee_points).unwrap();
-            
+
             if let Ok(extremes) = tracker.get_current_extremes() {
                 // Find actual min and max
                 let actual_min = fee_points.iter().map(|p| p.fee_amount).min().unwrap();
                 let actual_max = fee_points.iter().map(|p| p.fee_amount).max().unwrap();
-                
+
                 // Should match tracked extremes
                 prop_assert_eq!(extremes.current_min.value, actual_min);
                 prop_assert_eq!(extremes.current_max.value, actual_max);
@@ -838,9 +834,9 @@ mod tests {
                 congestion_window: Duration::hours(1),
             };
             let detector = CongestionDetector::new(config);
-            
+
             let spikes = detector.detect_spikes(&fee_points, baseline).unwrap();
-            
+
             // Verify all spike ratios are calculated correctly
             for spike in spikes {
                 let expected_ratio = spike.peak_fee as f64 / baseline;
@@ -856,7 +852,7 @@ mod tests {
         ) {
             let config = InsightsConfig::default();
             let engine = FeeInsightsEngine::new(config);
-            
+
             let fee_data = vec![
                 FeeDataPoint {
                     fee_amount,
@@ -865,7 +861,7 @@ mod tests {
                     ledger_sequence: 1,
                 }
             ];
-            
+
             // Should pass validation for valid fee amounts
             let result = engine.validate_fee_data(&fee_data);
             prop_assert!(result.is_ok());
@@ -879,7 +875,7 @@ mod tests {
             // Convert u64 to f64 and back
             let as_float: f64 = fee_amount as f64;
             let back_to_int: u64 = as_float as u64;
-            
+
             // Should preserve the original value
             prop_assert_eq!(fee_amount, back_to_int);
         }
@@ -893,7 +889,7 @@ mod tests {
     fn test_full_engine_integration() {
         let config = InsightsConfig::default();
         let mut engine = FeeInsightsEngine::new(config);
-        
+
         let now = Utc::now();
         let fee_data = vec![
             FeeDataPoint {
@@ -921,13 +917,13 @@ mod tests {
                 ledger_sequence: 4,
             },
         ];
-        
+
         // Process the fee data
         let result = tokio_test::block_on(engine.process_fee_data(&fee_data));
         assert!(result.is_ok());
-        
+
         let update = result.unwrap();
-        
+
         // Verify insights were calculated
         assert!(update.insights.rolling_averages.short_term.value > 0.0);
         assert!(update.insights.extremes.current_min.value > 0);
@@ -939,24 +935,22 @@ mod tests {
     fn test_engine_reset_functionality() {
         let config = InsightsConfig::default();
         let mut engine = FeeInsightsEngine::new(config);
-        
+
         let now = Utc::now();
-        let fee_data = vec![
-            FeeDataPoint {
-                fee_amount: 200,
-                timestamp: now - Duration::minutes(30),
-                transaction_hash: "hash1".to_string(),
-                ledger_sequence: 1,
-            }
-        ];
-        
+        let fee_data = vec![FeeDataPoint {
+            fee_amount: 200,
+            timestamp: now - Duration::minutes(30),
+            transaction_hash: "hash1".to_string(),
+            ledger_sequence: 1,
+        }];
+
         // Process some data
         let _result = tokio_test::block_on(engine.process_fee_data(&fee_data));
-        
+
         // Reset the engine
         let reset_result = engine.reset();
         assert!(reset_result.is_ok());
-        
+
         // Verify reset worked
         assert!(engine.get_last_update().is_none());
         let insights = engine.get_current_insights();

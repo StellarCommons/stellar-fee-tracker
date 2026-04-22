@@ -75,8 +75,8 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 mod tests {
     use super::*;
     use axum::{
-        body::{Body, to_bytes},
-        http::{HeaderValue, header},
+        body::{to_bytes, Body},
+        http::{header, HeaderValue},
         middleware::from_fn_with_state,
         routing::get,
         Router,
@@ -149,10 +149,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let payload: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(
-            payload["error"],
-            "Unauthorized: missing or invalid API key"
-        );
+        assert_eq!(payload["error"], "Unauthorized: missing or invalid API key");
     }
 
     #[tokio::test]
@@ -172,10 +169,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let payload: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(
-            payload["error"],
-            "Unauthorized: missing or invalid API key"
-        );
+        assert_eq!(payload["error"], "Unauthorized: missing or invalid API key");
     }
 
     #[tokio::test]

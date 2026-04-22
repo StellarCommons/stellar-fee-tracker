@@ -1,6 +1,6 @@
 //! Core data types for fee insights
 
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 /// A single fee data point from the blockchain
@@ -25,9 +25,9 @@ pub struct CurrentInsights {
 /// Rolling averages across different time windows
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RollingAverages {
-    pub short_term: AverageResult,    // 1 hour
-    pub medium_term: AverageResult,   // 6 hours
-    pub long_term: AverageResult,     // 24 hours
+    pub short_term: AverageResult,  // 1 hour
+    pub medium_term: AverageResult, // 6 hours
+    pub long_term: AverageResult,   // 24 hours
 }
 
 /// Result of a rolling average calculation
@@ -114,7 +114,7 @@ pub enum SpikeSeverity {
 /// Data quality indicators
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DataQuality {
-    pub completeness: f64,  // 0.0 to 1.0
+    pub completeness: f64, // 0.0 to 1.0
     pub freshness: Duration,
     pub has_gaps: bool,
     pub last_gap: Option<DateTime<Utc>>,

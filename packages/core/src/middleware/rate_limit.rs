@@ -3,11 +3,11 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use axum::{
-    Json,
-    extract::{Request, State, connect_info::ConnectInfo},
-    http::{HeaderValue, StatusCode, header},
+    extract::{connect_info::ConnectInfo, Request, State},
+    http::{header, HeaderValue, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
+    Json,
 };
 use dashmap::DashMap;
 use serde_json::json;
@@ -158,7 +158,11 @@ fn parse_x_forwarded_for(value: &str) -> Option<IpAddr> {
 
 fn attach_rate_limit_headers(response: &mut Response, limit: u32, remaining: u32, reset_secs: u64) {
     insert_number_header(response, X_RATE_LIMIT_LIMIT_HEADER, u64::from(limit));
-    insert_number_header(response, X_RATE_LIMIT_REMAINING_HEADER, u64::from(remaining));
+    insert_number_header(
+        response,
+        X_RATE_LIMIT_REMAINING_HEADER,
+        u64::from(remaining),
+    );
     insert_number_header(response, X_RATE_LIMIT_RESET_HEADER, reset_secs);
 }
 
@@ -172,7 +176,7 @@ fn insert_number_header(response: &mut Response, name: &'static str, value: u64)
 mod tests {
     use super::*;
     use axum::{
-        body::{Body, to_bytes},
+        body::{to_bytes, Body},
         extract::connect_info::ConnectInfo,
         http::Request,
         middleware::from_fn_with_state,
@@ -207,10 +211,7 @@ mod tests {
     }
 
     async fn request_with_connect_info(app: &Router, addr: SocketAddr) -> Response {
-        let mut request = Request::builder()
-            .uri("/test")
-            .body(Body::empty())
-            .unwrap();
+        let mut request = Request::builder().uri("/test").body(Body::empty()).unwrap();
         request.extensions_mut().insert(ConnectInfo(addr));
 
         app.clone().oneshot(request).await.unwrap()
@@ -262,10 +263,7 @@ mod tests {
         let payload: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(
             payload["error"],
-            format!(
-                "Rate limit exceeded. Try again in {} seconds.",
-                retry_after
-            )
+            format!("Rate limit exceeded. Try again in {} seconds.", retry_after)
         );
     }
 

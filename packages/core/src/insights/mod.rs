@@ -1,5 +1,5 @@
 //! Fee Insights Module
-//! 
+//!
 //! This module provides analytical insights from raw blockchain fee data,
 //! including rolling averages, extremes tracking, and congestion detection.
 
@@ -7,22 +7,22 @@
 // and API server are wired up. Suppress dead-code warnings until then.
 #![allow(unused_imports)]
 
-pub mod engine;
 pub mod calculator;
-pub mod tracker;
-pub mod detector;
-pub mod types;
-pub mod error;
 pub mod config;
-pub mod provider;
+pub mod detector;
+pub mod engine;
+pub mod error;
 pub mod horizon_adapter;
+pub mod provider;
+pub mod tracker;
+pub mod types;
 
 #[cfg(test)]
 mod tests;
 
-pub use engine::FeeInsightsEngine;
-pub use types::*;
-pub use error::InsightsError;
 pub use config::InsightsConfig;
-pub use provider::{FeeDataProvider, ProviderMetadata};
+pub use engine::FeeInsightsEngine;
+pub use error::InsightsError;
 pub use horizon_adapter::HorizonFeeDataProvider;
+pub use provider::{FeeDataProvider, ProviderMetadata};
+pub use types::*;

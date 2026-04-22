@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use axum::{
     body::Body,
     extract::{Query, State},
-    http::{HeaderMap, StatusCode, header},
+    http::{header, HeaderMap, StatusCode},
     response::Response,
     Json,
 };
@@ -13,12 +13,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::{Mutex, RwLock};
 
+use super::headers::{cache_control, compute_etag, if_none_match_matches, last_modified};
 use crate::cache::ResponseCache;
 use crate::error::AppError;
 use crate::insights::{FeeDataPoint, FeeInsightsEngine, TrendIndicator, TrendStrength};
 use crate::services::horizon::HorizonClient;
 use crate::store::FeeHistoryStore;
-use super::headers::{cache_control, compute_etag, if_none_match_matches, last_modified};
 
 /// Shared state type for the fees route.
 pub type FeesState = Arc<FeesApiState>;
@@ -38,18 +38,18 @@ impl FeeStatsProvider for HorizonClient {
             max_fee: stats.fee_charged.max,
             avg_fee: stats.fee_charged.avg,
             percentiles: PercentileFees {
-    p10: stats.fee_charged.p10,
-    p20: stats.fee_charged.p20,
-    p30: stats.fee_charged.p30,
-    p40: stats.fee_charged.p40,
-    p50: stats.fee_charged.p50,
-    p60: stats.fee_charged.p60,
-    p70: stats.fee_charged.p70,
-    p80: stats.fee_charged.p80,
-    p90: stats.fee_charged.p90,
-    p95: stats.fee_charged.p95,
-    p99: stats.fee_charged.p99,
-},
+                p10: stats.fee_charged.p10,
+                p20: stats.fee_charged.p20,
+                p30: stats.fee_charged.p30,
+                p40: stats.fee_charged.p40,
+                p50: stats.fee_charged.p50,
+                p60: stats.fee_charged.p60,
+                p70: stats.fee_charged.p70,
+                p80: stats.fee_charged.p80,
+                p90: stats.fee_charged.p90,
+                p95: stats.fee_charged.p95,
+                p99: stats.fee_charged.p99,
+            },
         })
     }
 }
@@ -324,9 +324,7 @@ pub struct FeeTrendResponse {
     pub last_updated: DateTime<Utc>,
 }
 
-pub async fn fee_trend(
-    State(state): State<FeesState>,
-) -> Result<Json<FeeTrendResponse>, AppError> {
+pub async fn fee_trend(State(state): State<FeesState>) -> Result<Json<FeeTrendResponse>, AppError> {
     let engine = state
         .insights_engine
         .as_ref()
@@ -389,13 +387,13 @@ mod tests {
     use std::sync::Mutex as StdMutex;
     use std::time::Duration as StdDuration;
 
+    use crate::insights::InsightsConfig;
     use axum::{
         body::{to_bytes, Body},
         http::{Request, StatusCode},
         routing::get,
         Router,
     };
-    use crate::insights::InsightsConfig;
     use chrono::Duration as ChronoDuration;
     use tower::ServiceExt;
 
@@ -477,19 +475,19 @@ mod tests {
             min_fee: "100".to_string(),
             max_fee: "5000".to_string(),
             avg_fee: "213".to_string(),
-           percentiles: PercentileFees {
-    p10: "100".to_string(),
-    p20: "100".to_string(),
-    p30: "100".to_string(),
-    p40: "100".to_string(),
-    p50: "150".to_string(),
-    p60: "200".to_string(),
-    p70: "250".to_string(),
-    p80: "300".to_string(),
-    p90: "500".to_string(),
-    p95: "800".to_string(),
-    p99: "1000".to_string(),
-},
+            percentiles: PercentileFees {
+                p10: "100".to_string(),
+                p20: "100".to_string(),
+                p30: "100".to_string(),
+                p40: "100".to_string(),
+                p50: "150".to_string(),
+                p60: "200".to_string(),
+                p70: "250".to_string(),
+                p80: "300".to_string(),
+                p90: "500".to_string(),
+                p95: "800".to_string(),
+                p99: "1000".to_string(),
+            },
         }
     }
 
@@ -551,7 +549,8 @@ mod tests {
             make_current_fee_response("100"),
             make_current_fee_response("200"),
         ]);
-        let state = make_fee_state_with_provider(Arc::new(mock.clone()), StdDuration::from_secs(60));
+        let state =
+            make_fee_state_with_provider(Arc::new(mock.clone()), StdDuration::from_secs(60));
 
         let app = Router::new()
             .route("/fees/current", get(current_fees))

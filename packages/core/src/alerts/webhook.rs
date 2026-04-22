@@ -89,8 +89,8 @@ impl WebhookDelivery {
 mod tests {
     use super::*;
     use wiremock::{
-        Mock, MockServer, ResponseTemplate,
         matchers::{body_json, method, path},
+        Mock, MockServer, ResponseTemplate,
     };
 
     fn build_payload() -> AlertPayload {

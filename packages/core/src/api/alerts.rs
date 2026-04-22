@@ -176,7 +176,6 @@ pub async fn delete_alert(
     }
 }
 
-
 // ---- Alert history ----
 
 #[derive(Debug, Deserialize)]
@@ -241,8 +240,8 @@ mod tests {
     use axum::{
         body::Body,
         http::{Method, Request},
-        Router,
         routing::{delete, get, patch, post},
+        Router,
     };
     use http_body_util::BodyExt;
     use tower::ServiceExt;
@@ -273,7 +272,9 @@ mod tests {
             .method(Method::POST)
             .uri("/alerts/config")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{"webhook_url":"https://example.com/hook","threshold":"Major"}"#))
+            .body(Body::from(
+                r#"{"webhook_url":"https://example.com/hook","threshold":"Major"}"#,
+            ))
             .unwrap();
 
         let resp = app.oneshot(req).await.unwrap();
@@ -289,7 +290,9 @@ mod tests {
             .method(Method::POST)
             .uri("/alerts/config")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{"webhook_url":"https://example.com/hook","threshold":"Catastrophic"}"#))
+            .body(Body::from(
+                r#"{"webhook_url":"https://example.com/hook","threshold":"Catastrophic"}"#,
+            ))
             .unwrap();
 
         let resp = app.oneshot(req).await.unwrap();
@@ -325,7 +328,10 @@ mod tests {
     async fn patch_updates_alert_config() {
         let pool = create_pool("sqlite::memory:").await.unwrap();
         let repo = Arc::new(FeeRepository::new(pool));
-        let id = repo.insert_alert_config("https://example.com/hook", "Minor").await.unwrap();
+        let id = repo
+            .insert_alert_config("https://example.com/hook", "Minor")
+            .await
+            .unwrap();
 
         let app = Router::new()
             .route("/alerts/config/:id", patch(update_alert))
@@ -346,7 +352,10 @@ mod tests {
     async fn patch_invalid_threshold_returns_400() {
         let pool = create_pool("sqlite::memory:").await.unwrap();
         let repo = Arc::new(FeeRepository::new(pool));
-        let id = repo.insert_alert_config("https://example.com/hook", "Minor").await.unwrap();
+        let id = repo
+            .insert_alert_config("https://example.com/hook", "Minor")
+            .await
+            .unwrap();
 
         let app = Router::new()
             .route("/alerts/config/:id", patch(update_alert))
@@ -367,7 +376,10 @@ mod tests {
     async fn delete_soft_deletes_alert_config() {
         let pool = create_pool("sqlite::memory:").await.unwrap();
         let repo = Arc::new(FeeRepository::new(pool.clone()));
-        let id = repo.insert_alert_config("https://example.com/hook", "Major").await.unwrap();
+        let id = repo
+            .insert_alert_config("https://example.com/hook", "Major")
+            .await
+            .unwrap();
 
         let app = Router::new()
             .route("/alerts/config/:id", delete(delete_alert))
@@ -408,8 +420,8 @@ mod history_tests {
     use axum::{
         body::Body,
         http::{Method, Request},
-        Router,
         routing::get,
+        Router,
     };
     use http_body_util::BodyExt;
     use tower::ServiceExt;

@@ -163,7 +163,10 @@ mod tests {
 
         let result = mock.fetch_latest_fees().await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ProviderError::NetworkError { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            ProviderError::NetworkError { .. }
+        ));
     }
 
     #[tokio::test]
@@ -196,7 +199,10 @@ mod tests {
     async fn health_check_fails_when_unhealthy() {
         let mock = MockHorizonClient::new().with_healthy(false);
         let result = mock.health_check().await;
-        assert!(matches!(result.unwrap_err(), ProviderError::ServiceUnavailable));
+        assert!(matches!(
+            result.unwrap_err(),
+            ProviderError::ServiceUnavailable
+        ));
     }
 
     #[tokio::test]

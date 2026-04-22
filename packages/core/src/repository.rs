@@ -27,7 +27,6 @@ pub struct AlertConfig {
     pub created_at: String,
 }
 
-
 /// A single fired-alert log entry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlertEvent {
@@ -149,12 +148,10 @@ impl FeeRepository {
     pub async fn prune_older_than(&self, cutoff: DateTime<Utc>) -> Result<u64, sqlx::Error> {
         let cutoff_str = cutoff.to_rfc3339();
 
-        let result = sqlx::query(
-            "DELETE FROM fee_data_points WHERE timestamp < ?",
-        )
-        .bind(&cutoff_str)
-        .execute(&self.pool)
-        .await?;
+        let result = sqlx::query("DELETE FROM fee_data_points WHERE timestamp < ?")
+            .bind(&cutoff_str)
+            .execute(&self.pool)
+            .await?;
 
         Ok(result.rows_affected())
     }
@@ -167,13 +164,12 @@ impl FeeRepository {
         webhook_url: &str,
         threshold: &str,
     ) -> Result<i64, sqlx::Error> {
-        let result = sqlx::query(
-            "INSERT INTO alert_configs (webhook_url, threshold) VALUES (?, ?)",
-        )
-        .bind(webhook_url)
-        .bind(threshold)
-        .execute(&self.pool)
-        .await?;
+        let result =
+            sqlx::query("INSERT INTO alert_configs (webhook_url, threshold) VALUES (?, ?)")
+                .bind(webhook_url)
+                .bind(threshold)
+                .execute(&self.pool)
+                .await?;
 
         Ok(result.last_insert_rowid())
     }
@@ -468,7 +464,10 @@ mod tests {
 
         assert_eq!(deleted, 1);
 
-        let remaining = repo.fetch_since(Utc::now() - Duration::days(1)).await.unwrap();
+        let remaining = repo
+            .fetch_since(Utc::now() - Duration::days(1))
+            .await
+            .unwrap();
         assert_eq!(remaining.len(), 2);
     }
 
@@ -510,7 +509,10 @@ mod tests {
     #[tokio::test]
     async fn fetch_since_returns_empty_when_no_data() {
         let repo = make_repo().await;
-        let fetched = repo.fetch_since(Utc::now() - Duration::hours(24)).await.unwrap();
+        let fetched = repo
+            .fetch_since(Utc::now() - Duration::hours(24))
+            .await
+            .unwrap();
         assert!(fetched.is_empty());
     }
 }
@@ -546,7 +548,10 @@ mod alert_tests {
             .insert_alert_config("https://hooks.example.com/a", "Minor")
             .await
             .unwrap();
-        let updated = repo.update_alert_config(id, "Critical", false).await.unwrap();
+        let updated = repo
+            .update_alert_config(id, "Critical", false)
+            .await
+            .unwrap();
         assert!(updated);
         let configs = repo.list_alert_configs().await.unwrap();
         assert_eq!(configs[0].threshold, "Critical");
@@ -627,7 +632,9 @@ mod alert_event_tests {
     async fn log_and_query_five_events() {
         let repo = make_repo().await;
         for _ in 0..5 {
-            repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+            repo.log_alert_event(&make_event("Major", true))
+                .await
+                .unwrap();
         }
         let events = repo.query_alert_history(20, None, None).await.unwrap();
         assert_eq!(events.len(), 5);
@@ -636,15 +643,27 @@ mod alert_event_tests {
     #[tokio::test]
     async fn filter_by_severity() {
         let repo = make_repo().await;
-        repo.log_alert_event(&make_event("Minor", true)).await.unwrap();
-        repo.log_alert_event(&make_event("Major", true)).await.unwrap();
-        repo.log_alert_event(&make_event("Critical", false)).await.unwrap();
+        repo.log_alert_event(&make_event("Minor", true))
+            .await
+            .unwrap();
+        repo.log_alert_event(&make_event("Major", true))
+            .await
+            .unwrap();
+        repo.log_alert_event(&make_event("Critical", false))
+            .await
+            .unwrap();
 
-        let major = repo.query_alert_history(20, Some("Major"), None).await.unwrap();
+        let major = repo
+            .query_alert_history(20, Some("Major"), None)
+            .await
+            .unwrap();
         assert_eq!(major.len(), 1);
         assert_eq!(major[0].severity, "Major");
 
-        let critical = repo.query_alert_history(20, Some("Critical"), None).await.unwrap();
+        let critical = repo
+            .query_alert_history(20, Some("Critical"), None)
+            .await
+            .unwrap();
         assert_eq!(critical.len(), 1);
         assert_eq!(critical[0].severity, "Critical");
     }
@@ -652,14 +671,26 @@ mod alert_event_tests {
     #[tokio::test]
     async fn filter_by_delivered() {
         let repo = make_repo().await;
-        repo.log_alert_event(&make_event("Major", true)).await.unwrap();
-        repo.log_alert_event(&make_event("Major", false)).await.unwrap();
-        repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+        repo.log_alert_event(&make_event("Major", true))
+            .await
+            .unwrap();
+        repo.log_alert_event(&make_event("Major", false))
+            .await
+            .unwrap();
+        repo.log_alert_event(&make_event("Major", true))
+            .await
+            .unwrap();
 
-        let delivered = repo.query_alert_history(20, None, Some(true)).await.unwrap();
+        let delivered = repo
+            .query_alert_history(20, None, Some(true))
+            .await
+            .unwrap();
         assert_eq!(delivered.len(), 2);
 
-        let failed = repo.query_alert_history(20, None, Some(false)).await.unwrap();
+        let failed = repo
+            .query_alert_history(20, None, Some(false))
+            .await
+            .unwrap();
         assert_eq!(failed.len(), 1);
     }
 
@@ -667,7 +698,9 @@ mod alert_event_tests {
     async fn limit_clamped_to_100() {
         let repo = make_repo().await;
         for _ in 0..5 {
-            repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+            repo.log_alert_event(&make_event("Major", true))
+                .await
+                .unwrap();
         }
         // Requesting 999 should be clamped to 100; still only 5 rows in DB
         let events = repo.query_alert_history(999, None, None).await.unwrap();
@@ -678,7 +711,9 @@ mod alert_event_tests {
     async fn count_alert_events_total() {
         let repo = make_repo().await;
         for _ in 0..5 {
-            repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+            repo.log_alert_event(&make_event("Major", true))
+                .await
+                .unwrap();
         }
         let total = repo.count_alert_events(None, None).await.unwrap();
         assert_eq!(total, 5);
@@ -687,9 +722,15 @@ mod alert_event_tests {
     #[tokio::test]
     async fn count_alert_events_filtered() {
         let repo = make_repo().await;
-        repo.log_alert_event(&make_event("Minor", true)).await.unwrap();
-        repo.log_alert_event(&make_event("Major", true)).await.unwrap();
-        repo.log_alert_event(&make_event("Critical", false)).await.unwrap();
+        repo.log_alert_event(&make_event("Minor", true))
+            .await
+            .unwrap();
+        repo.log_alert_event(&make_event("Major", true))
+            .await
+            .unwrap();
+        repo.log_alert_event(&make_event("Critical", false))
+            .await
+            .unwrap();
 
         let major_count = repo.count_alert_events(Some("Major"), None).await.unwrap();
         assert_eq!(major_count, 1);
@@ -697,14 +738,19 @@ mod alert_event_tests {
         let delivered_count = repo.count_alert_events(None, Some(true)).await.unwrap();
         assert_eq!(delivered_count, 2);
 
-        let critical_failed = repo.count_alert_events(Some("Critical"), Some(false)).await.unwrap();
+        let critical_failed = repo
+            .count_alert_events(Some("Critical"), Some(false))
+            .await
+            .unwrap();
         assert_eq!(critical_failed, 1);
     }
 
     #[tokio::test]
     async fn logged_event_has_assigned_id() {
         let repo = make_repo().await;
-        repo.log_alert_event(&make_event("Major", true)).await.unwrap();
+        repo.log_alert_event(&make_event("Major", true))
+            .await
+            .unwrap();
         let events = repo.query_alert_history(1, None, None).await.unwrap();
         assert!(events[0].id.is_some());
         assert!(events[0].id.unwrap() > 0);

@@ -8,9 +8,7 @@
 //! (`text/plain; version=0.0.4`). The endpoint is intentionally excluded
 //! from API-key auth so it can be scraped by Prometheus / Grafana agents.
 
-use prometheus::{
-    Counter, CounterVec, Gauge, Histogram, HistogramOpts, Opts, Registry,
-};
+use prometheus::{Counter, CounterVec, Gauge, Histogram, HistogramOpts, Opts, Registry};
 
 /// All application-level Prometheus metrics.
 pub struct AppMetrics {
@@ -76,7 +74,9 @@ impl AppMetrics {
                 "stellar_fee_tracker_http_request_duration_seconds",
                 "HTTP request latency in seconds",
             )
-            .buckets(vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]),
+            .buckets(vec![
+                0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0,
+            ]),
         )?;
 
         registry.register(Box::new(polls_total.clone()))?;
@@ -117,7 +117,11 @@ mod tests {
     #[test]
     fn all_metrics_register_without_error() {
         let metrics = AppMetrics::new();
-        assert!(metrics.is_ok(), "AppMetrics::new() failed: {:?}", metrics.err());
+        assert!(
+            metrics.is_ok(),
+            "AppMetrics::new() failed: {:?}",
+            metrics.err()
+        );
     }
 
     #[test]
@@ -220,7 +224,12 @@ mod integration_tests {
             .body(Body::empty())
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
-        let ct = resp.headers().get("content-type").unwrap().to_str().unwrap();
+        let ct = resp
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
         assert_eq!(ct, "text/plain; version=0.0.4");
     }
 

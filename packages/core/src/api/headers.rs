@@ -1,7 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use axum::http::{HeaderMap, HeaderValue, header};
+use axum::http::{header, HeaderMap, HeaderValue};
 use chrono::{DateTime, Utc};
 
 /// Compute a weakly-stable quoted ETag from response bytes.

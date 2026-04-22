@@ -147,7 +147,7 @@ mod tests {
         let mut store = FeeHistoryStore::new(10);
         store.push(make_point(100, 60)); // 60 min ago
         store.push(make_point(200, 30)); // 30 min ago
-        store.push(make_point(300, 5));  // 5 min ago
+        store.push(make_point(300, 5)); // 5 min ago
 
         let cutoff = Utc::now() - Duration::minutes(31);
         let result = store.get_since(cutoff);

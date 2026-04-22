@@ -17,14 +17,12 @@ use tokio::sync::RwLock;
 use tokio::time;
 
 use crate::alerts::AlertManager;
-use crate::insights::{
-    FeeDataProvider, FeeInsightsEngine,
-};
 use crate::insights::error::ProviderError;
 use crate::insights::types::FeeDataPoint;
+use crate::insights::{FeeDataProvider, FeeInsightsEngine};
+use crate::metrics::AppMetrics;
 use crate::repository::FeeRepository;
 use crate::store::FeeHistoryStore;
-use crate::metrics::AppMetrics;
 
 /// Run the fee polling loop until Ctrl+C is received.
 /// Uses defaults for retry and retention — prefer `run_fee_polling_with_retry` in production.
@@ -164,10 +162,10 @@ async fn poll_once(
                     update.insights.rolling_averages.short_term.value,
                 );
                 if let Some(m) = metrics {
-                    m.current_avg_fee.set(update.insights.rolling_averages.short_term.value);
-                    m.spikes_detected_total.inc_by(
-                        update.insights.congestion_trends.recent_spikes.len() as f64
-                    );
+                    m.current_avg_fee
+                        .set(update.insights.rolling_averages.short_term.value);
+                    m.spikes_detected_total
+                        .inc_by(update.insights.congestion_trends.recent_spikes.len() as f64);
                 }
                 if let Some(manager) = alert_manager {
                     manager.check_and_dispatch(&update).await;
@@ -253,9 +251,9 @@ mod tests {
     use super::*;
     use chrono::Utc;
 
-    use crate::insights::{FeeInsightsEngine, InsightsConfig};
     use crate::insights::error::ProviderError;
     use crate::insights::types::FeeDataPoint;
+    use crate::insights::{FeeInsightsEngine, InsightsConfig};
     use crate::services::mock_horizon::MockHorizonClient;
     use crate::store::{FeeHistoryStore, DEFAULT_CAPACITY};
 
@@ -273,7 +271,9 @@ mod tests {
     }
 
     fn make_shared_engine() -> Arc<RwLock<FeeInsightsEngine>> {
-        Arc::new(RwLock::new(FeeInsightsEngine::new(InsightsConfig::default())))
+        Arc::new(RwLock::new(FeeInsightsEngine::new(
+            InsightsConfig::default(),
+        )))
     }
 
     // ---- poll_once tests ----
@@ -306,9 +306,8 @@ mod tests {
 
     #[tokio::test]
     async fn poll_once_on_provider_error_does_not_push_to_store() {
-        let provider: Arc<dyn FeeDataProvider + Send + Sync> = Arc::new(
-            MockHorizonClient::new().with_error(ProviderError::ServiceUnavailable),
-        );
+        let provider: Arc<dyn FeeDataProvider + Send + Sync> =
+            Arc::new(MockHorizonClient::new().with_error(ProviderError::ServiceUnavailable));
         let store = make_shared_store();
         let engine = make_shared_engine();
 
@@ -333,8 +332,7 @@ mod tests {
 
     #[tokio::test]
     async fn poll_once_with_empty_provider_response_leaves_store_unchanged() {
-        let provider: Arc<dyn FeeDataProvider + Send + Sync> =
-            Arc::new(MockHorizonClient::new());
+        let provider: Arc<dyn FeeDataProvider + Send + Sync> = Arc::new(MockHorizonClient::new());
         let store = make_shared_store();
         let engine = make_shared_engine();
 

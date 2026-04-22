@@ -35,8 +35,8 @@ use stellar_fee_tracker::{
     api,
     cache::ResponseCache,
     db,
-    insights::{FeeInsightsEngine, InsightsConfig},
     insights::types::FeeDataPoint,
+    insights::{FeeInsightsEngine, InsightsConfig},
     metrics::AppMetrics,
     repository::FeeRepository,
     services::horizon::HorizonClient,
@@ -117,10 +117,7 @@ async fn build_test_app() -> (Router, MockServer) {
     let mock_server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/fee_stats"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_raw(FAKE_FEE_STATS, "application/json"),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_raw(FAKE_FEE_STATS, "application/json"))
         .mount(&mock_server)
         .await;
 
@@ -145,9 +142,9 @@ async fn build_test_app() -> (Router, MockServer) {
         }
     }
 
-    let insights_engine = Arc::new(RwLock::new(
-        FeeInsightsEngine::new(InsightsConfig::default()),
-    ));
+    let insights_engine = Arc::new(RwLock::new(FeeInsightsEngine::new(
+        InsightsConfig::default(),
+    )));
     {
         let mut engine = insights_engine.write().await;
         engine.process_fee_data(&points).await.unwrap();
@@ -195,14 +192,31 @@ async fn build_test_app() -> (Router, MockServer) {
             }),
         )
         .merge(fees_router)
-        .merge(api::insights::create_insights_router(insights_engine.clone()))
+        .merge(api::insights::create_insights_router(
+            insights_engine.clone(),
+        ))
         .merge(
             Router::new()
-                .route("/alerts/config", axum::routing::post(api::alerts::create_alert))
-                .route("/alerts/config", axum::routing::get(api::alerts::list_alerts))
-                .route("/alerts/config/:id", axum::routing::patch(api::alerts::update_alert))
-                .route("/alerts/config/:id", axum::routing::delete(api::alerts::delete_alert))
-                .route("/alerts/history", axum::routing::get(api::alerts::get_alert_history))
+                .route(
+                    "/alerts/config",
+                    axum::routing::post(api::alerts::create_alert),
+                )
+                .route(
+                    "/alerts/config",
+                    axum::routing::get(api::alerts::list_alerts),
+                )
+                .route(
+                    "/alerts/config/:id",
+                    axum::routing::patch(api::alerts::update_alert),
+                )
+                .route(
+                    "/alerts/config/:id",
+                    axum::routing::delete(api::alerts::delete_alert),
+                )
+                .route(
+                    "/alerts/history",
+                    axum::routing::get(api::alerts::get_alert_history),
+                )
                 .with_state(repository),
         );
 
@@ -221,7 +235,12 @@ async fn json_body(body: Body) -> Value {
 async fn health_returns_200_with_ok_body() {
     let (app, _mock) = build_test_app().await;
     let resp = app
-        .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -254,9 +273,18 @@ async fn fees_current_returns_200_with_required_fields() {
     assert_eq!(resp.status(), StatusCode::OK);
     let json = json_body(resp.into_body()).await;
     assert!(json["base_fee"].is_string(), "missing base_fee");
-    assert!(json["percentiles"]["p50"].is_string(), "missing percentiles.p50");
-    assert!(json["percentiles"]["p10"].is_string(), "missing percentiles.p10");
-    assert!(json["percentiles"]["p95"].is_string(), "missing percentiles.p95");
+    assert!(
+        json["percentiles"]["p50"].is_string(),
+        "missing percentiles.p50"
+    );
+    assert!(
+        json["percentiles"]["p10"].is_string(),
+        "missing percentiles.p10"
+    );
+    assert!(
+        json["percentiles"]["p95"].is_string(),
+        "missing percentiles.p95"
+    );
     assert!(json["min_fee"].is_string(), "missing min_fee");
     assert!(json["max_fee"].is_string(), "missing max_fee");
     assert!(json["avg_fee"].is_string(), "missing avg_fee");
@@ -473,7 +501,10 @@ async fn fees_trend_returns_200_with_status_and_changes() {
     assert!(json["status"].is_string(), "missing status");
     assert!(json["changes"].is_object(), "missing changes");
     assert!(json["trend_strength"].is_string(), "missing trend_strength");
-    assert!(json["recent_spike_count"].is_number(), "missing recent_spike_count");
+    assert!(
+        json["recent_spike_count"].is_number(),
+        "missing recent_spike_count"
+    );
     assert!(json["last_updated"].is_string(), "missing last_updated");
 }
 
@@ -516,7 +547,10 @@ async fn insights_returns_200_with_rolling_averages() {
 
     assert_eq!(resp.status(), StatusCode::OK);
     let json = json_body(resp.into_body()).await;
-    assert!(json["rolling_averages"].is_object(), "missing rolling_averages");
+    assert!(
+        json["rolling_averages"].is_object(),
+        "missing rolling_averages"
+    );
 }
 
 #[tokio::test]
@@ -641,7 +675,10 @@ async fn insights_extremes_returns_200() {
     assert_eq!(resp.status(), StatusCode::OK);
     // Response is a JSON object
     let json = json_body(resp.into_body()).await;
-    assert!(json.is_object(), "expected JSON object from /insights/extremes");
+    assert!(
+        json.is_object(),
+        "expected JSON object from /insights/extremes"
+    );
 }
 
 // ---- GET /insights/congestion -----------------------------------------------
@@ -661,7 +698,10 @@ async fn insights_congestion_returns_200() {
 
     assert_eq!(resp.status(), StatusCode::OK);
     let json = json_body(resp.into_body()).await;
-    assert!(json.is_object(), "expected JSON object from /insights/congestion");
+    assert!(
+        json.is_object(),
+        "expected JSON object from /insights/congestion"
+    );
 }
 
 // ---- GET /insights/health ---------------------------------------------------

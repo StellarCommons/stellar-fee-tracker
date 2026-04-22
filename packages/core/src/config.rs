@@ -145,8 +145,8 @@ impl Config {
             .unwrap_or(1000);
 
         // -------- Database URL --------
-        let database_url = get("DATABASE_URL")
-            .unwrap_or_else(|| "sqlite://stellar_fees.db".to_string());
+        let database_url =
+            get("DATABASE_URL").unwrap_or_else(|| "sqlite://stellar_fees.db".to_string());
 
         // -------- Storage retention --------
         let storage_retention_days = get("STORAGE_RETENTION_DAYS")
@@ -369,9 +369,10 @@ mod tests {
     #[test]
     fn allowed_origins_parses_comma_separated_list() {
         let cli = make_cli("testnet", None);
-        let env = HashMap::from([
-            ("ALLOWED_ORIGINS", "http://localhost:3000,https://app.example.com"),
-        ]);
+        let env = HashMap::from([(
+            "ALLOWED_ORIGINS",
+            "http://localhost:3000,https://app.example.com",
+        )]);
         let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
         assert_eq!(
             config.allowed_origins,
@@ -382,9 +383,10 @@ mod tests {
     #[test]
     fn allowed_origins_trims_whitespace() {
         let cli = make_cli("testnet", None);
-        let env = HashMap::from([
-            ("ALLOWED_ORIGINS", "http://localhost:3000 , https://app.example.com "),
-        ]);
+        let env = HashMap::from([(
+            "ALLOWED_ORIGINS",
+            "http://localhost:3000 , https://app.example.com ",
+        )]);
         let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
         assert_eq!(
             config.allowed_origins,

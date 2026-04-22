@@ -37,7 +37,11 @@ mod tests {
 
         // Run migrations a second time explicitly
         let result = sqlx::migrate!("./migrations").run(&pool).await;
-        assert!(result.is_ok(), "Second migration run failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Second migration run failed: {:?}",
+            result.err()
+        );
     }
 
     #[tokio::test]
