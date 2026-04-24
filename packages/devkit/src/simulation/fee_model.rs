@@ -1,7 +1,80 @@
-/// Models for simulating Stellar transaction fee behaviour.
-pub struct FeeModel;
+//! Models for simulating Stellar transaction fee behaviour.
 
-/// A fee curve snapshot matching the Horizon `fee_stats` shape (#119).
+use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
+
+/// Configuration for the seeded fee simulation.
+pub struct FeeModelConfig {
+    /// Base fee in stroops.
+    pub base_fee: u64,
+    /// Probability [0.0, 1.0] that any given ledger is a spike.
+    pub spike_probability: f64,
+    /// Multiplier applied to base_fee during a spike.
+    pub spike_multiplier: u64,
+    /// Ledger close interval in seconds (used for timestamp spacing).
+    pub ledger_interval_secs: u64,
+    /// Optional RNG seed for reproducibility.
+    pub seed: Option<u64>,
+}
+
+impl Default for FeeModelConfig {
+    fn default() -> Self {
+        Self {
+            base_fee: 100,
+            spike_probability: 0.05,
+            spike_multiplier: 10,
+            ledger_interval_secs: 5,
+            seed: None,
+        }
+    }
+}
+
+/// A single simulated fee data point.
+pub struct FeePoint {
+    /// Simulated Unix timestamp (seconds).
+    pub timestamp: u64,
+    /// Fee in stroops for this ledger.
+    pub fee: u64,
+    /// Whether this ledger was a spike.
+    pub is_spike: bool,
+}
+
+/// Stateful fee model that uses a seeded RNG for reproducible simulations.
+pub struct FeeModel {
+    config: FeeModelConfig,
+    rng: SmallRng,
+}
+
+impl FeeModel {
+    pub fn new(config: FeeModelConfig) -> Self {
+        let rng = match config.seed {
+            Some(s) => SmallRng::seed_from_u64(s),
+            None => SmallRng::from_entropy(),
+        };
+        Self { config, rng }
+    }
+
+    /// Generate `count` fee points starting from `start_timestamp`.
+    pub fn generate(&mut self, count: usize, start_timestamp: u64) -> Vec<FeePoint> {
+        let mut points = Vec::with_capacity(count);
+        for i in 0..count {
+            let is_spike = self.rng.gen::<f64>() < self.config.spike_probability;
+            let fee = if is_spike {
+                self.config.base_fee * self.config.spike_multiplier
+            } else {
+                self.config.base_fee
+            };
+            points.push(FeePoint {
+                timestamp: start_timestamp + (i as u64) * self.config.ledger_interval_secs,
+                fee,
+                is_spike,
+            });
+        }
+        points
+    }
+}
+
+/// A fee curve snapshot matching the Horizon `fee_stats` shape.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FeeCurve {
     pub last_ledger: String,
@@ -29,11 +102,11 @@ pub struct FeePercentiles {
     pub p99: String,
 }
 
-impl FeeModel {
-    /// Generate a `FeeCurve` scaled by `pressure` (0.0–1.0) (#122).
+impl FeeCurve {
+    /// Generate a `FeeCurve` scaled by `pressure` (0.0–1.0).
     ///
     /// At pressure 0 fees stay at `base_fee`; at pressure 1 they reach `max_fee`.
-    pub fn generate(base_fee: u64, max_fee: u64, pressure: f64, ledger_seq: u64) -> FeeCurve {
+    pub fn from_pressure(base_fee: u64, max_fee: u64, pressure: f64, ledger_seq: u64) -> Self {
         let pressure = pressure.clamp(0.0, 1.0);
         let fee = |pct: f64| -> String {
             let scaled = base_fee as f64 + (max_fee - base_fee) as f64 * pressure * pct;
@@ -79,8 +152,8 @@ impl FeeModel {
         }
     }
 
-    /// Serialise a `FeeCurve` to a JSON string (#119).
-    pub fn to_json(curve: &FeeCurve) -> Result<String, serde_json::Error> {
-        serde_json::to_string(curve)
+    /// Serialise this `FeeCurve` to a JSON string.
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
     }
 }

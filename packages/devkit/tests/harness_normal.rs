@@ -1,9 +1,7 @@
 /// Integration test: load normal scenario and assert p50 fee_charged == 100 stroops.
 #[test]
 fn normal_scenario_p50_is_baseline() {
-    let path = std::path::Path::new(
-        "src/harness/scenarios/normal.json",
-    );
+    let path = std::path::Path::new("src/harness/scenarios/normal.json");
     let raw = std::fs::read_to_string(path).expect("normal.json not found");
     let json: serde_json::Value = serde_json::from_str(&raw).expect("invalid JSON");
 
