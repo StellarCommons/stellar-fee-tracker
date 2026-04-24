@@ -3,8 +3,10 @@
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
+use crate::error::DevkitError;
+
 /// Configuration for a fee simulation scenario.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FeeModelConfig {
     /// Base fee in stroops.
     pub base_fee: u64,
@@ -18,6 +20,8 @@ pub struct FeeModelConfig {
     pub ledger_count: u64,
     /// Optional RNG seed for reproducibility.
     pub seed: Option<u64>,
+    /// Standard deviation of gaussian noise as a fraction of `base_fee` (0.0 = no noise).
+    pub noise_factor: f64,
 }
 
 impl Default for FeeModelConfig {
@@ -29,7 +33,37 @@ impl Default for FeeModelConfig {
             ledger_interval_secs: 5,
             ledger_count: 100,
             seed: None,
+            noise_factor: 0.0,
         }
+    }
+}
+
+impl FeeModelConfig {
+    /// Validates that the configuration can produce sensible fee samples.
+    pub fn validate(&self) -> Result<(), DevkitError> {
+        if self.base_fee == 0 {
+            return Err(DevkitError::Simulation(
+                "base_fee must be greater than zero".to_string(),
+            ));
+        }
+        if !self.spike_probability.is_finite()
+            || !(0.0..=1.0).contains(&self.spike_probability)
+        {
+            return Err(DevkitError::Simulation(
+                "spike_probability must be a finite value between 0.0 and 1.0".to_string(),
+            ));
+        }
+        if self.spike_multiplier == 0 {
+            return Err(DevkitError::Simulation(
+                "spike_multiplier must be greater than zero".to_string(),
+            ));
+        }
+        if !self.noise_factor.is_finite() || self.noise_factor < 0.0 {
+            return Err(DevkitError::Simulation(
+                "noise_factor must be a finite value >= 0.0".to_string(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -53,6 +87,8 @@ pub struct FeeModel {
 }
 
 impl FeeModel {
+    /// Create a fee model. Panics if `config` is invalid — prefer `new_validated` for
+    /// user-supplied configs.
     pub fn new(config: FeeModelConfig) -> Self {
         let rng = match config.seed {
             Some(s) => SmallRng::seed_from_u64(s),
@@ -61,15 +97,28 @@ impl FeeModel {
         Self { config, rng }
     }
 
+    /// Create a fee model, returning an error if the config fails validation.
+    pub fn new_validated(config: FeeModelConfig) -> Result<Self, DevkitError> {
+        config.validate()?;
+        Ok(Self::new(config))
+    }
+
     /// Generate `count` fee points starting from `start_timestamp`.
     pub fn generate(&mut self, count: usize, start_timestamp: u64) -> Vec<FeePoint> {
         let mut points = Vec::with_capacity(count);
         for i in 0..count {
             let is_spike = self.rng.gen::<f64>() < self.config.spike_probability;
-            let fee = if is_spike {
-                self.config.base_fee * self.config.spike_multiplier
+            let base = if self.config.noise_factor > 0.0 {
+                let noise = gaussian_noise(&mut self.rng) * self.config.noise_factor
+                    * self.config.base_fee as f64;
+                (self.config.base_fee as f64 + noise).max(1.0) as u64
             } else {
                 self.config.base_fee
+            };
+            let fee = if is_spike {
+                base * self.config.spike_multiplier
+            } else {
+                base
             };
             points.push(FeePoint {
                 timestamp: start_timestamp + (i as u64) * self.config.ledger_interval_secs,
@@ -81,14 +130,30 @@ impl FeeModel {
         points
     }
 
+    /// Generate a single fee sample in stroops (accounts for noise and spike probability).
+    pub fn sample_fee(&mut self) -> u64 {
+        let base = if self.config.noise_factor > 0.0 {
+            let noise = gaussian_noise(&mut self.rng) * self.config.noise_factor
+                * self.config.base_fee as f64;
+            (self.config.base_fee as f64 + noise).max(1.0) as u64
+        } else {
+            self.config.base_fee
+        };
+        let is_spike = self.rng.gen::<f64>() < self.config.spike_probability;
+        if is_spike { base * self.config.spike_multiplier } else { base }
+    }
+
+    /// Generate `count` fee values in stroops (accounts for noise and spike probability).
+    pub fn generate_fees(&mut self, count: usize) -> Vec<u64> {
+        (0..count).map(|_| self.sample_fee()).collect()
+    }
+
     /// Convenience batch runner: generates `config.ledger_count` points from timestamp 0.
-    /// Useful for benchmarks and snapshot tests.
     pub fn run(config: &FeeModelConfig) -> Vec<FeePoint> {
         FeeModel::new(config.clone()).generate(config.ledger_count as usize, 0)
     }
 
     /// Generate `count` baseline fee values at the Stellar minimum (100 stroops).
-    /// Useful for establishing a no-load reference series.
     pub fn baseline(count: usize) -> Vec<f64> {
         vec![100.0; count]
     }
@@ -114,6 +179,13 @@ impl FeeModel {
         }
         all
     }
+}
+
+/// Box-Muller transform to generate a standard-normal sample using the RNG.
+fn gaussian_noise(rng: &mut SmallRng) -> f64 {
+    let u1: f64 = rng.gen::<f64>().max(f64::EPSILON);
+    let u2: f64 = rng.gen::<f64>();
+    (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()
 }
 
 /// A fee curve snapshot matching the Horizon `fee_stats` shape.
@@ -146,8 +218,6 @@ pub struct FeePercentiles {
 
 impl FeeCurve {
     /// Generate a `FeeCurve` scaled by `pressure` (0.0–1.0).
-    ///
-    /// At pressure 0 fees stay at `base_fee`; at pressure 1 they reach `max_fee`.
     pub fn from_pressure(base_fee: u64, max_fee: u64, pressure: f64, ledger_seq: u64) -> Self {
         let pressure = pressure.clamp(0.0, 1.0);
         let fee = |pct: f64| -> String {

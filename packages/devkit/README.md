@@ -65,6 +65,38 @@ cargo test -p stellar-devkit
 cargo test -p stellar-devkit --test harness_congested
 ```
 
+## Mock Horizon Server
+
+The harness exposes canned `GET /fee_stats` payloads through `HorizonMock` and the JSON fixtures in `src/harness/scenarios/`.
+
+```bash
+# Start with the baseline fixture
+cargo test -p stellar-devkit --test harness_normal -- --nocapture
+
+# Swap to a higher-pressure fixture
+cargo test -p stellar-devkit --test harness_congested -- --nocapture
+```
+
+Scenario flags map directly to the fixture you load in your test setup:
+
+- `normal` for a low-fee baseline
+- `congested` for sustained high-fee demand
+- `spike` for a sudden short-lived fee jump
+- `recovery` for a return from congestion toward baseline
+
+```rust
+use std::path::Path;
+
+use stellar_devkit::harness::{
+    horizon_mock::HorizonMock,
+    scenarios::load_from_file,
+};
+
+let payload = load_from_file(Path::new("src/harness/scenarios/spike.json"))?;
+let mock = HorizonMock::new(payload);
+assert!(mock.fee_stats_payload().contains("\"scenario\": \"spike\""));
+```
+
 ## Adding to Your Crate
 
 ```toml

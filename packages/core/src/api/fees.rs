@@ -513,14 +513,14 @@ mod tests {
                 p10: "100".into(),
                 p20: "100".into(),
                 p30: "120".into(),
-                p40: "130".into(),
+                p40: "140".into(),
                 p50: "150".into(),
                 p60: "200".into(),
-                p70: "250".into(),
-                p80: "300".into(),
+                p70: "300".into(),
+                p80: "400".into(),
                 p90: "500".into(),
                 p95: "800".into(),
-                p99: "1000".into(),
+                p99: "1200".into(),
             },
         };
 
@@ -532,22 +532,24 @@ mod tests {
     }
 
     #[test]
-    fn percentile_fees_has_all_six_fields() {
+    fn percentile_fees_has_all_fields() {
         let p = PercentileFees {
             p10: "100".into(),
             p20: "100".into(),
             p30: "120".into(),
-            p40: "130".into(),
+            p40: "140".into(),
             p50: "150".into(),
             p60: "200".into(),
-            p70: "250".into(),
-            p80: "300".into(),
+            p70: "300".into(),
+            p80: "400".into(),
             p90: "500".into(),
             p95: "800".into(),
-            p99: "1000".into(),
+            p99: "1200".into(),
         };
         let json = serde_json::to_value(&p).unwrap();
-        for field in &["p10", "p20", "p50", "p80", "p90", "p95"] {
+        for field in &[
+            "p10", "p20", "p30", "p40", "p50", "p60", "p70", "p80", "p90", "p95", "p99",
+        ] {
             assert!(json.get(field).is_some(), "missing field: {}", field);
             assert!(!json[field].as_str().unwrap().is_empty());
         }
