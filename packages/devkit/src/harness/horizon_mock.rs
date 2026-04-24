@@ -6,7 +6,9 @@ pub struct HorizonMock {
 
 impl HorizonMock {
     pub fn new(fee_stats_response: impl Into<String>) -> Self {
-        Self { fee_stats_response: fee_stats_response.into() }
+        Self {
+            fee_stats_response: fee_stats_response.into(),
+        }
     }
 
     /// Returns the canned response body for `GET /fee_stats`.

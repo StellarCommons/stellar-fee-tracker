@@ -260,24 +260,34 @@ mod tests {
         let json = r#"{
             "min": "100",
             "max": "5000",
-            "avg": "213",
+            "mode": "213",
             "p10": "100",
-            "p25": "100",
+            "p20": "100",
+            "p30": "120",
+            "p40": "140",
             "p50": "150",
-            "p75": "300",
+            "p60": "200",
+            "p70": "300",
+            "p80": "400",
             "p90": "500",
-            "p95": "800"
+            "p95": "800",
+            "p99": "1200"
         }"#;
         let fc: FeeCharged = serde_json::from_str(json).unwrap();
         assert_eq!(fc.min, "100");
         assert_eq!(fc.max, "5000");
         assert_eq!(fc.avg, "213");
         assert_eq!(fc.p10, "100");
-        assert_eq!(fc.p25, "100");
+        assert_eq!(fc.p20, "100");
+        assert_eq!(fc.p30, "120");
+        assert_eq!(fc.p40, "140");
         assert_eq!(fc.p50, "150");
-        assert_eq!(fc.p75, "300");
+        assert_eq!(fc.p60, "200");
+        assert_eq!(fc.p70, "300");
+        assert_eq!(fc.p80, "400");
         assert_eq!(fc.p90, "500");
         assert_eq!(fc.p95, "800");
+        assert_eq!(fc.p99, "1200");
     }
 
     #[test]
@@ -287,18 +297,24 @@ mod tests {
             "fee_charged": {
                 "min": "100",
                 "max": "5000",
-                "avg": "213",
+                "mode": "213",
                 "p10": "100",
-                "p25": "100",
+                "p20": "100",
+                "p30": "120",
+                "p40": "140",
                 "p50": "150",
-                "p75": "300",
+                "p60": "200",
+                "p70": "300",
+                "p80": "400",
                 "p90": "500",
-                "p95": "800"
+                "p95": "800",
+                "p99": "1200"
             }
         }"#;
         let stats: HorizonFeeStats = serde_json::from_str(json).unwrap();
         assert_eq!(stats.last_ledger_base_fee, "100");
         assert_eq!(stats.fee_charged.p50, "150");
         assert_eq!(stats.fee_charged.p95, "800");
+        assert_eq!(stats.fee_charged.p99, "1200");
     }
 }
