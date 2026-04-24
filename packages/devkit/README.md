@@ -25,6 +25,36 @@ Developer toolkit for the Stellar Fee Tracker. Provides utilities for testing, m
 | `types` | Shared types: `FeeRecord`, `Scenario`, `SimResult` |
 | `error` | `DevkitError` unified error enum |
 
+## Simulation
+
+The `simulation` module provides fee modelling and network-load generation without any live-network dependencies.
+
+### `FeeModelConfig` fields
+
+| Field | Type | Description |
+|---|---|---|
+| `base_fee` | `u64` | Minimum fee (stroops) used as the simulation floor |
+| `surge_multiplier` | `f64` | Fee multiplier applied when the network is congested |
+| `congestion_threshold` | `f64` | Load ratio (0.0–1.0) above which surge pricing activates |
+
+### Example usage
+
+```rust
+use stellar_devkit::simulation::{FeeModel, NetworkLoad};
+
+let load = NetworkLoad::constant(0.85);          // 85 % utilisation
+let result = FeeModel::run(&load, base_fee: 100, surge_multiplier: 2.0, congestion_threshold: 0.8);
+println!("recommended fee: {} stroops", result.recommended_fee);
+```
+
+### Output format (`SimResult`)
+
+| Field | Type | Description |
+|---|---|---|
+| `recommended_fee` | `u64` | Suggested fee for the simulated conditions |
+| `congested` | `bool` | Whether surge pricing was triggered |
+| `load_ratio` | `f64` | Network utilisation at simulation time |
+
 ## Running
 
 ```bash
