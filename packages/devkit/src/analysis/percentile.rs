@@ -1,3 +1,15 @@
+/// Summary statistics for a fee distribution.
+#[derive(Debug, Clone)]
+pub struct FeeDistributionSummary {
+    pub min: u64,
+    pub max: u64,
+    pub mean: f64,
+    pub median: u64,
+    pub std_dev: f64,
+    /// Percentiles p10, p20, ..., p90, p99 (index 0 = p10, index 9 = p99).
+    pub percentiles: [u64; 10],
+}
+
 /// Computes percentile statistics over fee samples.
 pub struct Percentile;
 
@@ -26,6 +38,25 @@ impl Percentile {
         let hi = rank.ceil() as usize;
         let frac = rank - lo as f64;
         (sorted[lo] as f64 + frac * (sorted[hi] as f64 - sorted[lo] as f64)).round() as u64
+    }
+
+    /// Returns a full fee distribution summary for a sorted slice.
+    /// Returns `None` for empty slices.
+    pub fn fee_distribution_summary(sorted: &[u64]) -> Option<FeeDistributionSummary> {
+        if sorted.is_empty() {
+            return None;
+        }
+        let n = sorted.len();
+        let min = sorted[0];
+        let max = sorted[n - 1];
+        let mean = sorted.iter().map(|&x| x as f64).sum::<f64>() / n as f64;
+        let median = Self::nearest_rank(sorted, 50);
+        let variance =
+            sorted.iter().map(|&x| (x as f64 - mean).powi(2)).sum::<f64>() / n as f64;
+        let std_dev = variance.sqrt();
+        let ps = [10, 20, 30, 40, 50, 60, 70, 80, 90, 99];
+        let percentiles = ps.map(|p| Self::nearest_rank(sorted, p));
+        Some(FeeDistributionSummary { min, max, mean, median, std_dev, percentiles })
     }
 }
 
@@ -57,5 +88,21 @@ mod tests {
     #[test]
     fn linear_interpolation_empty() {
         assert_eq!(Percentile::linear_interpolation(&[], 50), 0);
+    }
+
+    #[test]
+    fn fee_distribution_summary_basic() {
+        let data = [10u64, 20, 30, 40, 50];
+        let s = Percentile::fee_distribution_summary(&data).unwrap();
+        assert_eq!(s.min, 10);
+        assert_eq!(s.max, 50);
+        assert_eq!(s.mean, 30.0);
+        assert_eq!(s.median, 30);
+        assert_eq!(s.percentiles[9], 50); // p99
+    }
+
+    #[test]
+    fn fee_distribution_summary_empty() {
+        assert!(Percentile::fee_distribution_summary(&[]).is_none());
     }
 }

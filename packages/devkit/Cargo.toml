@@ -19,3 +19,11 @@ criterion = { version = "0.5", features = ["html_reports"] }
 [[bench]]
 name = "fee_model_bench"
 harness = false
+
+[[bench]]
+name = "percentile_bench"
+harness = false
+
+[[bench]]
+name = "rolling_window_bench"
+harness = false
