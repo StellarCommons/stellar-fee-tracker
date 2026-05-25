@@ -915,6 +915,13 @@ mod tests {
                 transaction_hash: "hash4".to_string(),
                 ledger_sequence: 4,
             },
+            // Recent point within the 5-min short_term window
+            FeeDataPoint {
+                fee_amount: 110,
+                timestamp: now - Duration::minutes(2),
+                transaction_hash: "hash5".to_string(),
+                ledger_sequence: 5,
+            },
         ];
 
         // Process the fee data
@@ -924,10 +931,11 @@ mod tests {
         let update = result.unwrap();
 
         // Verify insights were calculated
+        // short_term window is 5 min — only hash5 qualifies; value should be 110
         assert!(update.insights.rolling_averages.short_term.value > 0.0);
         assert!(update.insights.extremes.current_min.value > 0);
         assert!(update.insights.extremes.current_max.value > 0);
-        assert_eq!(update.data_points_processed, 4);
+        assert_eq!(update.data_points_processed, 5);
     }
 
     #[test]
