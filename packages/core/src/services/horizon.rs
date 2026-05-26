@@ -39,8 +39,9 @@ pub struct HorizonFeeStats {
 pub struct FeeCharged {
     pub min: String,
     pub max: String,
-    /// The arithmetic mean fee charged across all transactions in the ledger.
-    /// Horizon exposes this as `"avg"` in the fee_stats response.
+    /// Horizon exposes the most-common fee as `"mode"` in fee_stats.
+    /// We surface it as `avg_fee` in the public API (typical fee charged).
+    #[serde(rename = "mode")]
     pub avg: String,
     pub p10: String,
     pub p20: String,
@@ -97,7 +98,7 @@ mod tests {
         let json = r#"{
             "min": "100",
             "max": "5000",
-            "avg": "213",
+            "mode": "213",
             "p10": "100",
             "p20": "100",
             "p30": "120",
@@ -134,7 +135,7 @@ mod tests {
             "fee_charged": {
                 "min": "100",
                 "max": "5000",
-                "avg": "213",
+                "mode": "213",
                 "p10": "100",
                 "p20": "100",
                 "p30": "120",

@@ -42,17 +42,17 @@ impl Default for InsightsConfig {
             time_windows: vec![
                 TimeWindow {
                     name: "short_term".to_string(),
-                    duration: Duration::hours(1),
-                    min_samples: 10,
+                    duration: Duration::minutes(5), // ~5 min window (matches UI label)
+                    min_samples: 5,
                 },
                 TimeWindow {
                     name: "medium_term".to_string(),
-                    duration: Duration::hours(6),
-                    min_samples: 30,
+                    duration: Duration::hours(1), // ~1 hour window (matches UI label)
+                    min_samples: 20,
                 },
                 TimeWindow {
                     name: "long_term".to_string(),
-                    duration: Duration::hours(24),
+                    duration: Duration::hours(24), // ~24 hour window (matches UI label)
                     min_samples: 100,
                 },
             ],

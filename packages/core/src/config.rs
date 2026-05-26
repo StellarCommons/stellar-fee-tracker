@@ -102,7 +102,10 @@ impl Config {
             .ok_or("POLL_INTERVAL_SECONDS is required and must be a number")?;
 
         // -------- API Port --------
+        // API_PORT takes precedence; fall back to PORT (Render's injected var),
+        // then 8080 for local development.
         let api_port = get("API_PORT")
+            .or_else(|| get("PORT"))
             .and_then(|v| v.parse::<u16>().ok())
             .unwrap_or(8080);
 
