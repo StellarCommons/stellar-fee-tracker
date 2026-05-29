@@ -55,6 +55,106 @@ println!("recommended fee: {} stroops", result.recommended_fee);
 | `congested` | `bool` | Whether surge pricing was triggered |
 | `load_ratio` | `f64` | Network utilisation at simulation time |
 
+## CLI
+
+The `cli` module provides command-line subcommands for replaying, exporting, simulating, and benchmarking fee data.
+
+### `mock`
+
+Start a mock Horizon server using pre-built fee scenario fixtures. Useful for local development and integration testing without a live network connection.
+
+```bash
+cargo run -p stellar-devkit -- mock --scenario spike
+```
+
+Flags:
+
+| Flag | Description |
+|---|---|
+| `--scenario <name>` | Scenario fixture to load: `normal`, `congested`, `spike`, `recovery` |
+
+### `replay`
+
+Replay a recorded fee scenario against the devkit harness. Feeds historical or synthetic fee data through the analysis pipeline to verify behaviour.
+
+```bash
+cargo run -p stellar-devkit -- replay --scenario congested --speed 1.0
+```
+
+Flags:
+
+| Flag | Description |
+|---|---|
+| `--scenario <name>` | Scenario to replay |
+| `--speed <factor>` | Playback speed multiplier (default: 1.0) |
+| `--from <timestamp>` | Start replay from a specific timestamp |
+| `--to <timestamp>` | Stop replay at a specific timestamp |
+
+### `export`
+
+Export fee data to CSV or JSON format for external analysis and reporting.
+
+```bash
+# Export to CSV
+cargo run -p stellar-devkit -- export --format csv --output fees.csv
+
+# Export to JSON
+cargo run -p stellar-devkit -- export --format json --output fees.json
+
+# Export a specific time window
+cargo run -p stellar-devkit -- export --format csv --window 1h --output recent.csv
+```
+
+Flags:
+
+| Flag | Description |
+|---|---|
+| `--format <fmt>` | Output format: `csv` or `json` |
+| `--output <path>` | Write output to a file instead of stdout |
+| `--window <duration>` | Restrict export to a recent time window (e.g. `1h`, `24h`) |
+
+CSV output columns: `timestamp`, `fee`, `ledger`, `is_spike`.
+
+### `simulate`
+
+Run a fee simulation using the built-in fee model and network load generator. Predicts recommended fees and congestion status without hitting live infrastructure.
+
+```bash
+cargo run -p stellar-devkit -- simulate --base-fee 100 --surge 2.0 --threshold 0.8
+```
+
+Flags:
+
+| Flag | Description |
+|---|---|
+| `--base-fee <stroops>` | Minimum fee floor in stroops |
+| `--surge <multiplier>` | Surge pricing multiplier when congested |
+| `--threshold <ratio>` | Congestion threshold (0.0–1.0) |
+
+### `benchmark`
+
+Run benchmarks comparing SMA, EMA, and WMA rolling-window algorithms on spike fee data. Outputs a comparison table to stdout.
+
+```bash
+cargo run -p stellar-devkit -- benchmark --window 20 --alpha 0.3
+```
+
+Flags:
+
+| Flag | Description |
+|---|---|
+| `--window <size>` | Rolling window size for SMA/WMA (default: 20) |
+| `--alpha <value>` | Smoothing factor for EMA (0.0–1.0, default: 0.3) |
+
+Output example:
+
+```
+idx          SMA          EMA          WMA
+19       102.3456       98.7654      101.2345
+20       103.4567       99.1234      102.3456
+...
+```
+
 ## Running
 
 ```bash
