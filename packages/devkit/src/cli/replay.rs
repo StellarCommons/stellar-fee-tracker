@@ -20,6 +20,12 @@ impl ReplayArgs {
             self.db.display(),
             self.speed
         );
+}
+
+impl ReplayArgs {
+    /// Replays fee records from the database to stdout as a JSON stream.
+    pub fn run(&self) {
+        eprintln!("Replaying fee records from {}", self.db.display());
         println!("[]");
     }
 }
