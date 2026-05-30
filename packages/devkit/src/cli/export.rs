@@ -1,10 +1,53 @@
 ﻿use crate::simulation::fee_model::FeePoint;
 use std::fmt::Write as FmtWrite;
 
+/// Time window filter for exports.
+#[derive(Debug, Clone, Copy)]
+pub enum Window {
+    OneHour,
+    SixHours,
+    TwentyFourHours,
+    All,
+}
+
+impl Window {
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "1h" => Some(Self::OneHour),
+            "6h" => Some(Self::SixHours),
+            "24h" => Some(Self::TwentyFourHours),
+            "all" => Some(Self::All),
+            _ => None,
+        }
+    }
+
+    pub fn cutoff_seconds(&self) -> Option<u64> {
+        match self {
+            Self::OneHour => Some(3600),
+            Self::SixHours => Some(21600),
+            Self::TwentyFourHours => Some(86400),
+            Self::All => None,
+        }
+    }
+}
+
 /// Exports devkit results to external formats.
 pub struct Export;
 
 impl Export {
+    /// Filter points by window relative to the latest timestamp.
+    pub fn filter_window<'a>(points: &'a [FeePoint], window: Window) -> &'a [FeePoint] {
+        match window.cutoff_seconds() {
+            None => points,
+            Some(secs) => {
+                let max_ts = points.iter().map(|p| p.timestamp).max().unwrap_or(0);
+                let cutoff = max_ts.saturating_sub(secs);
+                let start = points.partition_point(|p| p.timestamp < cutoff);
+                &points[start..]
+            }
+        }
+    }
+
     /// Serialize fee points to CSV: timestamp,fee,ledger,is_spike.
     pub fn to_csv(points: &[FeePoint]) -> String {
         let mut out = String::from("timestamp,fee,ledger,is_spike\n");
@@ -44,6 +87,25 @@ mod tests {
     use super::*;
     use crate::simulation::fee_model::FeePoint;
 
+    fn pts() -> Vec<FeePoint> {
+        vec![
+            FeePoint { timestamp: 0, fee: 100, ledger: 1, is_spike: false },
+            FeePoint { timestamp: 7200, fee: 200, ledger: 2, is_spike: true },
+        ]
+    }
+
+    #[test]
+    fn window_1h_filters() {
+        let p = pts();
+        let filtered = Export::filter_window(&p, Window::OneHour);
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].timestamp, 7200);
+    }
+
+    #[test]
+    fn window_all_keeps_all() {
+        let p = pts();
+        assert_eq!(Export::filter_window(&p, Window::All).len(), 2);
     fn sample() -> Vec<FeePoint> {
         vec![FeePoint { timestamp: 1000, fee: 100, ledger: 1, is_spike: false }]
     }
