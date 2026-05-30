@@ -106,16 +106,10 @@ impl HorizonMock {
             return Ok(canned.clone());
         }
         let path = self.scenario_path.clone().unwrap_or_else(|| {
-            std::path::PathBuf::from(format!(
-                "src/harness/scenarios/{}.json",
-                self.scenario
-            ))
+            std::path::PathBuf::from(format!("src/harness/scenarios/{}.json", self.scenario))
         });
         crate::harness::scenarios::load_scenario(&path)
-            .map(|s| {
-                serde_json::to_string(&s.fee_stats)
-                    .unwrap_or_else(|_| "{}".to_string())
-            })
+            .map(|s| serde_json::to_string(&s.fee_stats).unwrap_or_else(|_| "{}".to_string()))
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
     }
 }
@@ -154,7 +148,11 @@ impl HorizonMock {
                 .and_then(|s| s.to_str())
                 .unwrap_or("normal")
                 .to_string(),
-            delay_ms: if config.delay_ms > 0 { Some(config.delay_ms) } else { None },
+            delay_ms: if config.delay_ms > 0 {
+                Some(config.delay_ms)
+            } else {
+                None
+            },
             scenario_path: Some(config.scenario_path),
             error_rate: config.error_rate,
             fee_stats_response: None,
@@ -185,18 +183,12 @@ pub async fn serve(mock: std::sync::Arc<HorizonMock>, port: u16) -> std::io::Res
                     match m.fee_stats_payload() {
                         Ok(json) => (
                             axum::http::StatusCode::OK,
-                            [(
-                                axum::http::header::CONTENT_TYPE,
-                                "application/json",
-                            )],
+                            [(axum::http::header::CONTENT_TYPE, "application/json")],
                             json,
                         ),
                         Err(e) => (
                             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                            [(
-                                axum::http::header::CONTENT_TYPE,
-                                "application/json",
-                            )],
+                            [(axum::http::header::CONTENT_TYPE, "application/json")],
                             format!(r#"{{"error":"{}"}}"#, e),
                         ),
                     }

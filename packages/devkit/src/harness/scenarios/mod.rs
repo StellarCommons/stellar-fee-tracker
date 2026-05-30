@@ -1,7 +1,7 @@
 //! Pre-built test scenarios for the Stellar fee tracker harness.
 
-use std::path::Path;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 /// Percentile fee distribution returned by Horizon's `/fee_stats` endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
