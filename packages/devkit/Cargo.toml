@@ -29,3 +29,15 @@ harness = false
 [[bench]]
 name = "percentile_bench"
 harness = false
+
+[[bench]]
+name = "main"
+harness = false
+
+[[bench]]
+name = "spike_bench"
+harness = false
+
+[[bench]]
+name = "congestion_bench"
+harness = false
