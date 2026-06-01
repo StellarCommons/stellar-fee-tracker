@@ -2,8 +2,6 @@
 use std::fmt::Write as FmtWrite;
 use std::path::{Path, PathBuf};
 
-use crate::simulation::fee_model::FeePoint;
-
 /// Arguments for the `export` subcommand.
 pub struct ExportArgs {
     /// Source SQLite database path.
@@ -128,6 +126,8 @@ mod tests {
     fn window_all_keeps_all() {
         let p = pts();
         assert_eq!(Export::filter_window(&p, Window::All).len(), 2);
+    }
+
     fn sample() -> Vec<FeePoint> {
         vec![FeePoint { timestamp: 1000, fee: 100, ledger: 1, is_spike: false }]
     }
