@@ -1,8 +1,6 @@
-﻿use crate::simulation::fee_model::FeePoint;
+use crate::simulation::fee_model::FeePoint;
 use std::fmt::Write as FmtWrite;
 use std::path::{Path, PathBuf};
-
-use crate::simulation::fee_model::FeePoint;
 
 /// Arguments for the `export` subcommand.
 pub struct ExportArgs {
@@ -56,7 +54,6 @@ impl Window {
 pub struct Export;
 
 impl Export {
-    /// Serialize fee points to CSV.
     /// Filter points by window relative to the latest timestamp.
     pub fn filter_window<'a>(points: &'a [FeePoint], window: Window) -> &'a [FeePoint] {
         match window.cutoff_seconds() {
@@ -116,6 +113,10 @@ mod tests {
         ]
     }
 
+    fn sample() -> Vec<FeePoint> {
+        vec![FeePoint { timestamp: 1000, fee: 100, ledger: 1, is_spike: false }]
+    }
+
     #[test]
     fn window_1h_filters() {
         let p = pts();
@@ -128,8 +129,6 @@ mod tests {
     fn window_all_keeps_all() {
         let p = pts();
         assert_eq!(Export::filter_window(&p, Window::All).len(), 2);
-    fn sample() -> Vec<FeePoint> {
-        vec![FeePoint { timestamp: 1000, fee: 100, ledger: 1, is_spike: false }]
     }
 
     #[test]
