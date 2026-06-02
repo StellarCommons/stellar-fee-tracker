@@ -99,13 +99,10 @@ impl HorizonMock {
     /// Returns the JSON body for `GET /health`, including the total request count.
     pub fn health_payload(&self) -> String {
         let count = self.request_count.load(Ordering::Relaxed);
-        format!(
-            r#"{{"status":"ok","scenario":"{}","request_count":{}}}"#,
-            self.scenario, count
         let uptime = current_unix_secs().saturating_sub(self.start_time);
         format!(
-            r#"{{"status":"ok","scenario":"{}","uptime_secs":{}}}"#,
-            self.scenario, uptime
+            r#"{{"status":"ok","scenario":"{}","request_count":{},"uptime_secs":{}}}"#,
+            self.scenario, count, uptime
         )
     }
 
