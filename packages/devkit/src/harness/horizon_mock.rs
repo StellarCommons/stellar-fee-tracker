@@ -16,6 +16,8 @@ pub struct HorizonMock {
     pub fee_stats_response: Option<String>,
     /// Total number of requests served (incremented on each call to `record_request()`).
     pub request_count: AtomicU64,
+    /// Unix timestamp when this mock was created (for uptime calculation).
+    pub start_time: u64,
 }
 
 impl HorizonMock {
@@ -27,6 +29,7 @@ impl HorizonMock {
             error_rate: 0.0,
             fee_stats_response: None,
             request_count: AtomicU64::new(0),
+            start_time: current_unix_secs(),
         }
     }
 
@@ -99,6 +102,10 @@ impl HorizonMock {
         format!(
             r#"{{"status":"ok","scenario":"{}","request_count":{}}}"#,
             self.scenario, count
+        let uptime = current_unix_secs().saturating_sub(self.start_time);
+        format!(
+            r#"{{"status":"ok","scenario":"{}","uptime_secs":{}}}"#,
+            self.scenario, uptime
         )
     }
 
@@ -144,6 +151,10 @@ pub struct HorizonMockConfig {
     pub delay_ms: u64,
     /// Probability [0.0, 1.0] of injecting a 500 error response.
     pub error_rate: f64,
+    /// Interval in seconds between automatic scenario rotations (0 = disabled).
+    pub rotate_secs: u64,
+    /// Ordered list of scenario names to rotate through (used when rotate_secs > 0).
+    pub rotation_scenarios: Vec<String>,
 }
 
 impl Default for HorizonMockConfig {
@@ -153,6 +164,8 @@ impl Default for HorizonMockConfig {
             scenario_path: std::path::PathBuf::from("src/harness/scenarios/normal.json"),
             delay_ms: 0,
             error_rate: 0.0,
+            rotate_secs: 0,
+            rotation_scenarios: Vec::new(),
         }
     }
 }
@@ -176,6 +189,7 @@ impl HorizonMock {
             error_rate: config.error_rate,
             fee_stats_response: None,
             request_count: AtomicU64::new(0),
+            start_time: current_unix_secs(),
         }
     }
 }
@@ -185,6 +199,8 @@ impl HorizonMock {
 /// Routes:
 /// - `GET /fee_stats` — returns scenario fee stats JSON
 /// - `GET /health` — returns `{"status":"ok","scenario":"<name>","request_count":N}`
+/// - `GET /fee_stats` — returns scenario fee stats JSON, with optional delay and error injection
+/// - `GET /health` — returns `{"status":"ok","scenario":"<name>","uptime_secs":N}`
 ///
 /// Binds to `0.0.0.0:port`. Returns when the server shuts down.
 pub async fn serve(mock: std::sync::Arc<HorizonMock>, port: u16) -> std::io::Result<()> {
@@ -201,6 +217,14 @@ pub async fn serve(mock: std::sync::Arc<HorizonMock>, port: u16) -> std::io::Res
                 let m = m1.clone();
                 async move {
                     m.record_request("GET", "/fee_stats");
+                    m.apply_delay();
+                    if m.should_inject_error() {
+                        return (
+                            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                            [(axum::http::header::CONTENT_TYPE, "application/json")],
+                            r#"{"error":"service unavailable"}"#.to_string(),
+                        );
+                    }
                     match m.fee_stats_payload() {
                         Ok(json) => (
                             axum::http::StatusCode::OK,
@@ -234,6 +258,14 @@ pub async fn serve(mock: std::sync::Arc<HorizonMock>, port: u16) -> std::io::Res
     axum::serve(listener, app)
         .await
         .map_err(std::io::Error::other)
+}
+
+/// Returns the current Unix timestamp in seconds.
+fn current_unix_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
 
 /// Minimal pseudo-random float in [0.0, 1.0) using system time as entropy.

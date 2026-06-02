@@ -146,6 +146,15 @@ mod tests {
         assert_eq!(Export::filter_window(&p, Window::All).len(), 2);
     }
 
+    fn sample() -> Vec<FeePoint> {
+        vec![FeePoint {
+            timestamp: 1000,
+            fee: 100,
+            ledger: 1,
+            is_spike: false,
+        }]
+    }
+
     #[test]
     fn csv_has_header() {
         let csv = Export::to_csv(&sample());
