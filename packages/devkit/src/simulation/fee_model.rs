@@ -40,6 +40,35 @@ impl Default for FeeModelConfig {
 
 impl FeeModelConfig {
     /// Validates that the configuration can produce sensible fee samples.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DevkitError::Simulation`] when any field is out of range.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stellar_devkit::simulation::fee_model::FeeModelConfig;
+    ///
+    /// // Default config is always valid.
+    /// assert!(FeeModelConfig::default().validate().is_ok());
+    ///
+    /// // base_fee of zero is rejected.
+    /// let bad = FeeModelConfig { base_fee: 0, ..FeeModelConfig::default() };
+    /// assert!(bad.validate().is_err());
+    ///
+    /// // spike_probability must be in [0.0, 1.0].
+    /// let bad = FeeModelConfig { spike_probability: 1.5, ..FeeModelConfig::default() };
+    /// assert!(bad.validate().is_err());
+    ///
+    /// // spike_multiplier of zero is rejected.
+    /// let bad = FeeModelConfig { spike_multiplier: 0, ..FeeModelConfig::default() };
+    /// assert!(bad.validate().is_err());
+    ///
+    /// // Negative noise_factor is rejected.
+    /// let bad = FeeModelConfig { noise_factor: -0.1, ..FeeModelConfig::default() };
+    /// assert!(bad.validate().is_err());
+    /// ```
     pub fn validate(&self) -> Result<(), DevkitError> {
         if self.base_fee == 0 {
             return Err(DevkitError::Simulation(
@@ -79,14 +108,47 @@ pub struct FeePoint {
 }
 
 /// Stateful fee model that uses a seeded RNG for reproducible simulations.
+///
+/// # Reproducibility
+///
+/// Pass `seed: Some(n)` in [`FeeModelConfig`] to get deterministic output.
+/// The same seed always produces the same sequence regardless of platform.
+///
+/// ```
+/// use stellar_devkit::simulation::fee_model::{FeeModel, FeeModelConfig};
+///
+/// let cfg = FeeModelConfig { seed: Some(42), ledger_count: 10, ..FeeModelConfig::default() };
+/// let run_a = FeeModel::run(&cfg);
+/// let run_b = FeeModel::run(&cfg);
+///
+/// // Identical seeds produce identical fee sequences.
+/// let fees_a: Vec<u64> = run_a.iter().map(|p| p.fee).collect();
+/// let fees_b: Vec<u64> = run_b.iter().map(|p| p.fee).collect();
+/// assert_eq!(fees_a, fees_b);
+/// ```
 pub struct FeeModel {
     config: FeeModelConfig,
     rng: SmallRng,
 }
 
 impl FeeModel {
-    /// Create a fee model. Panics if `config` is invalid — prefer `new_validated` for
+    /// Create a fee model. Panics if `config` is invalid — prefer [`new_validated`] for
     /// user-supplied configs.
+    ///
+    /// [`new_validated`]: FeeModel::new_validated
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stellar_devkit::simulation::fee_model::{FeeModel, FeeModelConfig};
+    ///
+    /// // Unseeded — output differs between runs.
+    /// let _model = FeeModel::new(FeeModelConfig::default());
+    ///
+    /// // Seeded — output is reproducible.
+    /// let cfg = FeeModelConfig { seed: Some(7), ..FeeModelConfig::default() };
+    /// let _model = FeeModel::new(cfg);
+    /// ```
     pub fn new(config: FeeModelConfig) -> Self {
         let rng = match config.seed {
             Some(s) => SmallRng::seed_from_u64(s),
@@ -96,12 +158,45 @@ impl FeeModel {
     }
 
     /// Create a fee model, returning an error if the config fails validation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stellar_devkit::simulation::fee_model::{FeeModel, FeeModelConfig};
+    ///
+    /// assert!(FeeModel::new_validated(FeeModelConfig::default()).is_ok());
+    ///
+    /// let bad = FeeModelConfig { base_fee: 0, ..FeeModelConfig::default() };
+    /// assert!(FeeModel::new_validated(bad).is_err());
+    /// ```
     pub fn new_validated(config: FeeModelConfig) -> Result<Self, DevkitError> {
         config.validate()?;
         Ok(Self::new(config))
     }
 
     /// Generate `count` fee points starting from `start_timestamp`.
+    ///
+    /// Ledger sequence numbers are 1-based and contiguous within the returned slice.
+    /// Timestamps advance by `config.ledger_interval_secs` per point.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stellar_devkit::simulation::fee_model::{FeeModel, FeeModelConfig};
+    ///
+    /// let cfg = FeeModelConfig { seed: Some(1), ..FeeModelConfig::default() };
+    /// let mut model = FeeModel::new(cfg);
+    /// let points = model.generate(5, 1_700_000_000);
+    ///
+    /// assert_eq!(points.len(), 5);
+    /// // Ledgers are 1-based.
+    /// assert_eq!(points[0].ledger, 1);
+    /// assert_eq!(points[4].ledger, 5);
+    /// // Timestamps advance by ledger_interval_secs (default 5 s).
+    /// assert_eq!(points[1].timestamp - points[0].timestamp, 5);
+    /// // Every fee is at least 1 stroop.
+    /// assert!(points.iter().all(|p| p.fee >= 1));
+    /// ```
     pub fn generate(&mut self, count: usize, start_timestamp: u64) -> Vec<FeePoint> {
         let mut points = Vec::with_capacity(count);
         for i in 0..count {
@@ -153,6 +248,23 @@ impl FeeModel {
     }
 
     /// Convenience batch runner: generates `config.ledger_count` points from timestamp 0.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stellar_devkit::simulation::fee_model::{FeeModel, FeeModelConfig};
+    ///
+    /// let cfg = FeeModelConfig {
+    ///     seed: Some(99),
+    ///     ledger_count: 20,
+    ///     ..FeeModelConfig::default()
+    /// };
+    /// let points = FeeModel::run(&cfg);
+    ///
+    /// assert_eq!(points.len(), 20);
+    /// assert_eq!(points[0].timestamp, 0);
+    /// assert!(points.iter().all(|p| p.fee >= 1));
+    /// ```
     pub fn run(config: &FeeModelConfig) -> Vec<FeePoint> {
         FeeModel::new(config.clone()).generate(config.ledger_count as usize, 0)
     }
@@ -163,6 +275,33 @@ impl FeeModel {
     }
 
     /// Run multiple scenarios sequentially and return combined output.
+    ///
+    /// Ledger sequence numbers and timestamps are continuous across scenario boundaries
+    /// so the combined slice can be fed directly into analysis functions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stellar_devkit::simulation::fee_model::{FeeModel, FeeModelConfig};
+    ///
+    /// let low = FeeModelConfig { seed: Some(1), ledger_count: 5, ..FeeModelConfig::default() };
+    /// let high = FeeModelConfig {
+    ///     seed: Some(2),
+    ///     ledger_count: 5,
+    ///     base_fee: 500,
+    ///     ..FeeModelConfig::default()
+    /// };
+    ///
+    /// let points = FeeModel::run_scenarios(&[low, high]);
+    ///
+    /// assert_eq!(points.len(), 10);
+    /// // Ledger sequence is continuous across the boundary.
+    /// assert_eq!(points[5].ledger, 6);
+    /// // Timestamps never go backwards.
+    /// for w in points.windows(2) {
+    ///     assert!(w[1].timestamp >= w[0].timestamp);
+    /// }
+    /// ```
     pub fn run_scenarios(configs: &[FeeModelConfig]) -> Vec<FeePoint> {
         let mut all = Vec::new();
         let mut ledger_offset = 0u64;
