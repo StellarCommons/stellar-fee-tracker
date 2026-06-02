@@ -2,6 +2,8 @@ pub mod benchmark;
 pub mod export;
 pub mod replay;
 
+use clap::{Parser, Subcommand};
+
 /// Arguments for the `simulate` subcommand.
 pub struct SimulateArgs {
     /// Base fee floor in stroops.
@@ -30,6 +32,8 @@ impl SimulateArgs {
             self.duration, self.base_fee, self.spike_prob
         );
     }
+}
+
 /// Arguments for the `mock` subcommand.
 pub struct MockArgs {
     /// Scenario to load (e.g. "normal", "congested", "spike").
@@ -55,7 +59,7 @@ impl MockArgs {
             self.port, self.scenario
         );
     }
-use clap::{Parser, Subcommand};
+}
 
 /// Developer toolkit for the Stellar fee tracker.
 #[derive(Parser)]

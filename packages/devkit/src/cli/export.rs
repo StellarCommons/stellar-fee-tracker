@@ -1,8 +1,6 @@
-﻿use crate::simulation::fee_model::FeePoint;
+use crate::simulation::fee_model::FeePoint;
 use std::fmt::Write as FmtWrite;
 use std::path::{Path, PathBuf};
-
-use crate::simulation::fee_model::FeePoint;
 
 /// Arguments for the `export` subcommand.
 pub struct ExportArgs {
@@ -32,7 +30,7 @@ pub enum Window {
 }
 
 impl Window {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "1h" => Some(Self::OneHour),
             "6h" => Some(Self::SixHours),
@@ -58,7 +56,7 @@ pub struct Export;
 impl Export {
     /// Serialize fee points to CSV.
     /// Filter points by window relative to the latest timestamp.
-    pub fn filter_window<'a>(points: &'a [FeePoint], window: Window) -> &'a [FeePoint] {
+    pub fn filter_window(points: &[FeePoint], window: Window) -> &[FeePoint] {
         match window.cutoff_seconds() {
             None => points,
             Some(secs) => {
@@ -111,8 +109,18 @@ mod tests {
 
     fn pts() -> Vec<FeePoint> {
         vec![
-            FeePoint { timestamp: 0, fee: 100, ledger: 1, is_spike: false },
-            FeePoint { timestamp: 7200, fee: 200, ledger: 2, is_spike: true },
+            FeePoint {
+                timestamp: 0,
+                fee: 100,
+                ledger: 1,
+                is_spike: false,
+            },
+            FeePoint {
+                timestamp: 7200,
+                fee: 200,
+                ledger: 2,
+                is_spike: true,
+            },
         ]
     }
 
@@ -128,8 +136,15 @@ mod tests {
     fn window_all_keeps_all() {
         let p = pts();
         assert_eq!(Export::filter_window(&p, Window::All).len(), 2);
+    }
+
     fn sample() -> Vec<FeePoint> {
-        vec![FeePoint { timestamp: 1000, fee: 100, ledger: 1, is_spike: false }]
+        vec![FeePoint {
+            timestamp: 1000,
+            fee: 100,
+            ledger: 1,
+            is_spike: false,
+        }]
     }
 
     #[test]
