@@ -54,7 +54,6 @@ impl Window {
 pub struct Export;
 
 impl Export {
-    /// Serialize fee points to CSV.
     /// Filter points by window relative to the latest timestamp.
     pub fn filter_window(points: &[FeePoint], window: Window) -> &[FeePoint] {
         match window.cutoff_seconds() {
@@ -122,6 +121,15 @@ mod tests {
                 is_spike: true,
             },
         ]
+    }
+
+    fn sample() -> Vec<FeePoint> {
+        vec![FeePoint {
+            timestamp: 1000,
+            fee: 100,
+            ledger: 1,
+            is_spike: false,
+        }]
     }
 
     #[test]

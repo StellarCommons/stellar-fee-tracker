@@ -68,6 +68,10 @@ pub fn load_from_file(path: &Path) -> std::io::Result<String> {
 pub struct ScenarioRotator {
     scenarios: Vec<String>,
     index: usize,
+    /// How often (in seconds) to advance to the next scenario. 0 = manual only.
+    pub interval_secs: u64,
+    /// Unix timestamp of the last rotation.
+    last_rotated: u64,
 }
 
 impl ScenarioRotator {
@@ -78,6 +82,18 @@ impl ScenarioRotator {
         Self {
             scenarios,
             index: 0,
+            interval_secs: 0,
+            last_rotated: current_unix_secs(),
+        }
+    }
+
+    /// Creates a rotator that automatically advances every `interval_secs` seconds.
+    pub fn with_interval(scenarios: Vec<String>, interval_secs: u64) -> Self {
+        Self {
+            scenarios,
+            index: 0,
+            interval_secs,
+            last_rotated: current_unix_secs(),
         }
     }
 
@@ -88,6 +104,27 @@ impl ScenarioRotator {
         }
         let current = self.scenarios[self.index].as_str();
         self.index = (self.index + 1) % self.scenarios.len();
+        self.last_rotated = current_unix_secs();
         Some(current)
     }
+
+    /// Advances if the rotation interval has elapsed. Returns the new scenario name if rotated.
+    pub fn advance_if_due(&mut self) -> Option<&str> {
+        if self.interval_secs == 0 {
+            return None;
+        }
+        let elapsed = current_unix_secs().saturating_sub(self.last_rotated);
+        if elapsed >= self.interval_secs {
+            self.advance()
+        } else {
+            None
+        }
+    }
+}
+
+fn current_unix_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
 }
