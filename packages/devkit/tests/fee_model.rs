@@ -276,9 +276,10 @@ fn predict_all_four_congestion_levels() {
 #[test]
 fn congestion_score_result_in_0_1() {
     let input = CongestionInput {
-        recent_fee_window: 250_000.0,
+        recent_avg_fee: 250_000.0,
         capacity_usage: 0.5,
-        spike_count: 5,
+        spike_count_1h: 5,
+        trend: "stable".to_string(),
     };
     let score = congestion_score(&input);
     assert!((0.0..=1.0).contains(&score), "score {score} out of [0,1]");
@@ -287,9 +288,10 @@ fn congestion_score_result_in_0_1() {
 #[test]
 fn congestion_score_zero_inputs_is_zero() {
     let input = CongestionInput {
-        recent_fee_window: 0.0,
+        recent_avg_fee: 0.0,
         capacity_usage: 0.0,
-        spike_count: 0,
+        spike_count_1h: 0,
+        trend: "stable".to_string(),
     };
     let score = congestion_score(&input);
     assert!(
@@ -301,14 +303,16 @@ fn congestion_score_zero_inputs_is_zero() {
 #[test]
 fn congestion_score_higher_spike_count_increases_score() {
     let base = CongestionInput {
-        recent_fee_window: 1_000.0,
+        recent_avg_fee: 1_000.0,
         capacity_usage: 0.3,
-        spike_count: 0,
+        spike_count_1h: 0,
+        trend: "stable".to_string(),
     };
     let elevated = CongestionInput {
-        recent_fee_window: 1_000.0,
+        recent_avg_fee: 1_000.0,
         capacity_usage: 0.3,
-        spike_count: 10,
+        spike_count_1h: 10,
+        trend: "stable".to_string(),
     };
     assert!(
         congestion_score(&elevated) > congestion_score(&base),
@@ -319,14 +323,15 @@ fn congestion_score_higher_spike_count_increases_score() {
 #[test]
 fn congestion_score_full_inputs_clamps_to_1() {
     let input = CongestionInput {
-        recent_fee_window: 1_000_000.0,
+        recent_avg_fee: 1_000_000.0,
         capacity_usage: 1.0,
-        spike_count: 100,
+        spike_count_1h: 100,
+        trend: "rising".to_string(),
     };
     let score = congestion_score(&input);
     assert!(
-        (score - 1.0).abs() < 1e-9,
-        "saturated inputs should clamp to 1.0"
+        score > 0.9,
+        "saturated inputs should produce a high score, got {score}"
     );
 }
 

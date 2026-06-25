@@ -18,9 +18,10 @@ fn bench_predict(c: &mut Criterion) {
         b.iter(|| {
             for i in 0..1_000u64 {
                 let input = CongestionInput {
-                    recent_fee_window: 100.0 + i as f64,
+                    recent_avg_fee: 100.0 + i as f64,
                     capacity_usage: (i % 100) as f64 / 100.0,
-                    spike_count: (i % 10) as u32,
+                    spike_count_1h: (i % 10) as u32,
+                    trend: "stable".to_string(),
                 };
                 let _ = congestion_score(&input);
             }
