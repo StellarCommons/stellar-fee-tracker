@@ -199,8 +199,8 @@ impl PsquaredEstimator {
             let (n_i, h_i) = self.markers[i];
             let (n_ip1, h_ip1) = self.markers[i + 1];
 
-            let cond = (d >= 1.0 && (n_ip1 - n_i).abs() > 1.0)
-                || (d <= -1.0 && (n_im1 - n_i).abs() > 1.0);
+            let cond =
+                (d >= 1.0 && (n_ip1 - n_i).abs() > 1.0) || (d <= -1.0 && (n_im1 - n_i).abs() > 1.0);
             if !cond {
                 continue;
             }
@@ -231,7 +231,8 @@ impl PsquaredEstimator {
         match self.count {
             0 => 0.0,
             1..=4 => {
-                self.init_vals[..self.init_count].iter().sum::<u64>() as f64 / self.init_count as f64
+                self.init_vals[..self.init_count].iter().sum::<u64>() as f64
+                    / self.init_count as f64
             }
             _ => self.markers[2].1,
         }
@@ -360,10 +361,7 @@ mod tests {
             est.update(v);
         }
         let p50 = est.estimate();
-        assert!(
-            (400.0..=600.0).contains(&p50),
-            "p50={p50} not near 500"
-        );
+        assert!((400.0..=600.0).contains(&p50), "p50={p50} not near 500");
     }
 
     #[test]
@@ -386,9 +384,6 @@ mod tests {
             est.update(v);
         }
         let p99 = est.estimate();
-        assert!(
-            (480.0..=505.0).contains(&p99),
-            "p99={p99} not near 500"
-        );
+        assert!((480.0..=505.0).contains(&p99), "p99={p99} not near 500");
     }
 }
