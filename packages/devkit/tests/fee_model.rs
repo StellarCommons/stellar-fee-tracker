@@ -26,6 +26,105 @@ fn spike_rate_within_10_percent_of_configured_probability() {
     );
 }
 
+// ── Issue #250: Baseline fee generator integration tests ───────────────────────
+
+#[test]
+fn generate_baseline_output_length() {
+    let config = FeeModelConfig {
+        base_fee: 200,
+        noise_factor: 0.1,
+        seed: Some(1),
+        ..Default::default()
+    };
+    let mut model = FeeModel::new(config);
+    let points = model.generate_baseline(50);
+    assert_eq!(points.len(), 50);
+}
+
+#[test]
+fn generate_baseline_values_within_noise_band() {
+    let config = FeeModelConfig {
+        base_fee: 1_000,
+        noise_factor: 0.1,
+        seed: Some(42),
+        ..Default::default()
+    };
+    let band = 4.0 * config.noise_factor * config.base_fee as f64;
+    let mut model = FeeModel::new(config.clone());
+    let points = model.generate_baseline(500);
+    for p in &points {
+        // 4x noise band: base_fee ± 4 * noise_factor * base_fee
+        let low = config.base_fee as f64 - band;
+        let high = config.base_fee as f64 + band;
+        assert!(
+            (p.fee as f64) >= low.max(1.0),
+            "fee {} below expected low {}",
+            p.fee,
+            low
+        );
+        assert!(
+            (p.fee as f64) <= high,
+            "fee {} above expected high {}",
+            p.fee,
+            high
+        );
+    }
+}
+
+// ── Issue #251: Spike injector integration test ────────────────────────────────
+
+#[test]
+fn inject_spikes_rate_within_15_percent_of_configured() {
+    let spike_probability = 0.05;
+    let config = FeeModelConfig {
+        base_fee: 100,
+        spike_probability,
+        spike_multiplier: 5,
+        seed: Some(99),
+        ..Default::default()
+    };
+    let mut model = FeeModel::new(config);
+    let mut points = model.generate_baseline(10_000);
+    model.inject_spikes(&mut points);
+
+    let spike_count = points.iter().filter(|p| p.is_spike).count();
+    let actual_rate = spike_count as f64 / 10_000.0;
+    let tolerance = spike_probability * 0.15;
+    assert!(
+        (actual_rate - spike_probability).abs() <= tolerance,
+        "spike rate {actual_rate:.4} not within 15% of {spike_probability}"
+    );
+}
+
+// ── Issue #252: Seeded reproducibility (generate_baseline + inject_spikes) ──────
+
+#[test]
+fn generate_baseline_with_spikes_is_deterministic() {
+    let config = FeeModelConfig {
+        base_fee: 100,
+        spike_probability: 0.3,
+        spike_multiplier: 3,
+        noise_factor: 0.2,
+        seed: Some(42),
+        ..Default::default()
+    };
+
+    let run = |cfg: &FeeModelConfig| -> Vec<(u64, bool)> {
+        let mut model = FeeModel::new(cfg.clone());
+        let mut pts = model.generate_baseline(200);
+        model.inject_spikes(&mut pts);
+        pts.into_iter().map(|p| (p.fee, p.is_spike)).collect()
+    };
+
+    let a = run(&config);
+    let b = run(&config);
+    assert_eq!(a.len(), b.len());
+    for (i, ((fee_a, spike_a), (fee_b, spike_b))) in a.iter().zip(b.iter()).enumerate() {
+        assert_eq!(fee_a, fee_b, "fee mismatch at index {i}");
+        assert_eq!(spike_a, spike_b, "spike mismatch at index {i}");
+    }
+}
+
 /// Assert spike ledgers carry the multiplied fee and non-spike ledgers carry base fee.
 #[test]
 fn spike_fee_equals_base_times_multiplier() {
