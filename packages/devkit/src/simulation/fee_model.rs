@@ -403,6 +403,35 @@ pub fn apply_timestamps(points: &mut [FeePoint], epoch_ms: u64, interval_ms: u64
     }
 }
 
+/// Serialise a slice of `FeePoint`s to a CSV string.
+///
+/// The output contains a header row followed by one row per point:
+/// `timestamp,fee_amount,ledger_sequence,is_spike`
+///
+/// # Examples
+///
+/// ```
+/// use stellar_devkit::simulation::fee_model::{FeePoint, export_csv};
+///
+/// let points = vec![
+///     FeePoint { timestamp: 0, fee: 100, ledger: 1, is_spike: false },
+///     FeePoint { timestamp: 5, fee: 500, ledger: 2, is_spike: true },
+/// ];
+/// let csv = export_csv(&points);
+/// assert!(csv.starts_with("timestamp,fee_amount,ledger_sequence,is_spike"));
+/// assert!(csv.contains("0,100,1,false"));
+/// assert!(csv.contains("5,500,2,true"));
+/// ```
+pub fn export_csv(points: &[FeePoint]) -> String {
+    let mut buf = String::with_capacity(points.len() * 48);
+    buf.push_str("timestamp,fee_amount,ledger_sequence,is_spike\n");
+    for p in points {
+        use std::fmt::Write;
+        let _ = writeln!(buf, "{},{},{},{}", p.timestamp, p.fee, p.ledger, p.is_spike);
+    }
+    buf
+}
+
 /// A fee curve snapshot matching the Horizon `fee_stats` shape.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FeeCurve {
