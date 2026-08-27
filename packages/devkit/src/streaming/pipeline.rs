@@ -10,7 +10,7 @@ use tokio::sync::mpsc;
 
 use crate::error::DevkitError;
 use crate::protocol::fee_stats::HorizonFeeStats;
-use crate::storage::{FeeRecord as StoredFeeRecord, FeeStore};
+use crate::storage::{traits::FeeRecord as StoredFeeRecord, FeeStore};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StreamRecord {

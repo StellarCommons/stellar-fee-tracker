@@ -1,4 +1,12 @@
 //! Composable, bounded streaming primitives for fee observations.
+//!
+//! Streaming pipeline primitives for the devkit.
+//!
+//! ## Stability note
+//!
+//! `FeeEvent` is defined here as a **temporary stand-in** for the canonical
+//! type being introduced by issue #610. Once #610 merges, this definition
+//! should be removed and the import updated to point at the upstream location.
 
 mod pipeline;
 
@@ -6,14 +14,6 @@ pub use pipeline::{
     FileReplaySource, Pipeline, PipelineBuilder, PollingConfig, PollingSource, Sink, Source,
     SpikeDetector, Transform, Transformer, RollingAverageTransformer, StorageSink, StreamRecord,
 };
-
-//! Streaming pipeline primitives for the devkit.
-//!
-//! ## Stability note
-//!
-//! `FeeEvent` is defined here as a **temporary stand-in** for the canonical
-//! type being introduced by issue #610.  Once #610 merges, this definition
-//! should be removed and the import updated to point at the upstream location.
 
 pub mod sink;
 
