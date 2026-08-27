@@ -1,3 +1,4 @@
+pub mod alerting;
 pub mod analysis;
 pub mod analytics;
 pub mod cli;
