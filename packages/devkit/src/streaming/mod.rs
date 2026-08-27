@@ -1,11 +1,26 @@
 //! Streaming pipeline primitives for the devkit.
+//!
+//! ## Stability note
+//!
+//! `FeeEvent` is defined here as a **temporary stand-in** for the canonical
+//! type being introduced by issue #610 (`ibrahimmosouf-png`).  Once #610
+//! merges, this definition should be removed and the import updated to point
+//! at the upstream location.
+//!
+//! This module also provides transformers that consume fee events and emit
+//! derived events (e.g. spike detection).  Until #610 lands the transformer
+//! submodule carries its own minimal local event types to stay self-contained
+//! and avoid a merge conflict.
 
 pub mod sink;
 
 pub use sink::StdoutSink;
 
+pub mod transformer;
+
+pub use transformer::{FeeRecord, SpikeDetectionTransformer, SpikeTransformerEvent};
+
 use crate::analysis::spike_classifier::SpikeEvent;
-use crate::storage::traits::FeeRecord;
 
 /// Events that flow through the streaming pipeline.
 ///
