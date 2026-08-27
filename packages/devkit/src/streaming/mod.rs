@@ -1,4 +1,3 @@
-feat/devkit-streaming-pipeline
 //! Composable, bounded streaming primitives for fee observations.
 
 mod pipeline;
@@ -50,4 +49,3 @@ pub enum FeeEvent {
     /// A pipeline processing error occurred.
     PipelineError(String),
 }
-main
