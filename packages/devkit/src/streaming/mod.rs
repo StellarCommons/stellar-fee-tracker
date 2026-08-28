@@ -1,3 +1,5 @@
+//! Composable, bounded streaming primitives for fee observations.
+//!
 //! Streaming pipeline primitives for the devkit.
 //!
 //! ## Stability note
@@ -11,6 +13,14 @@
 //! derived events (e.g. spike detection).  Until #610 lands the transformer
 //! submodule carries its own minimal local event types to stay self-contained
 //! and avoid a merge conflict.
+
+mod pipeline;
+
+pub use pipeline::{
+    FileReplaySource, Pipeline, PipelineBuilder, PollingConfig, PollingSource,
+    RollingAverageTransformer, Sink, Source, SpikeDetector, StorageSink, StreamRecord, Transform,
+    Transformer,
+};
 
 pub mod sink;
 
