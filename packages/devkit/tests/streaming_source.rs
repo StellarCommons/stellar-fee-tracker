@@ -40,7 +40,13 @@ async fn polling_source_emits_one_record_per_poll() {
     }
 
     assert_eq!(records.len(), 3);
-    assert_eq!(records.iter().map(|record| record.fee_stroops).collect::<Vec<_>>(), [100, 200, 300]);
+    assert_eq!(
+        records
+            .iter()
+            .map(|record| record.fee_stroops)
+            .collect::<Vec<_>>(),
+        [100, 200, 300]
+    );
     assert_eq!(requests.load(Ordering::Relaxed), 3);
 }
 

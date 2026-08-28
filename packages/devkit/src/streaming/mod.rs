@@ -17,8 +17,9 @@
 mod pipeline;
 
 pub use pipeline::{
-    FileReplaySource, Pipeline, PipelineBuilder, PollingConfig, PollingSource, Sink, Source,
-    SpikeDetector, Transform, Transformer, RollingAverageTransformer, StorageSink, StreamRecord,
+    FileReplaySource, Pipeline, PipelineBuilder, PollingConfig, PollingSource,
+    RollingAverageTransformer, Sink, Source, SpikeDetector, StorageSink, StreamRecord, Transform,
+    Transformer,
 };
 
 pub mod sink;

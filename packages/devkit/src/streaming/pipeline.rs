@@ -72,19 +72,16 @@ impl Pipeline {
         });
 
         let mut written = 0;
-        while let Some(mut record) = receiver.recv().await {
-            let mut keep = true;
+        while let Some(record) = receiver.recv().await {
+            let mut current = Some(record);
             for transform in &mut self.transforms {
-                match transform.transform(record) {
-                    Some(transformed) => record = transformed,
-                    None => {
-                        keep = false;
-                        break;
-                    }
-                }
+                current = match current {
+                    Some(value) => transform.transform(value),
+                    None => break,
+                };
             }
-            if keep {
-                self.sink.write(record).await?;
+            if let Some(final_record) = current {
+                self.sink.write(final_record).await?;
                 written += 1;
             }
         }
@@ -158,7 +155,11 @@ impl PollingSource {
 #[async_trait]
 impl Source for PollingSource {
     async fn next(&mut self) -> Result<Option<StreamRecord>, DevkitError> {
-        if self.config.max_polls.is_some_and(|limit| self.polls >= limit) {
+        if self
+            .config
+            .max_polls
+            .is_some_and(|limit| self.polls >= limit)
+        {
             return Ok(None);
         }
         if self.polls > 0 {
@@ -195,7 +196,9 @@ impl FileReplaySource {
         let mut lines = BufReader::new(file).lines();
         let header = lines.next().transpose().map_err(DevkitError::Io)?;
         if header.as_deref() != Some("timestamp_ms,fee_stroops,sequence") {
-            return Err(invalid_csv("expected timestamp_ms,fee_stroops,sequence CSV header"));
+            return Err(invalid_csv(
+                "expected timestamp_ms,fee_stroops,sequence CSV header",
+            ));
         }
         let records = lines
             .map(|line| line.map_err(DevkitError::Io))
@@ -216,7 +219,10 @@ impl FileReplaySource {
 }
 
 fn invalid_csv(error: impl std::fmt::Display) -> DevkitError {
-    DevkitError::Io(io::Error::new(io::ErrorKind::InvalidData, error.to_string()))
+    DevkitError::Io(io::Error::new(
+        io::ErrorKind::InvalidData,
+        error.to_string(),
+    ))
 }
 
 #[async_trait]
