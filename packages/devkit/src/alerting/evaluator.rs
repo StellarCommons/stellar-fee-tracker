@@ -144,7 +144,10 @@ impl RuleEvaluator {
             if !Self::is_triggered(rule.condition, value, rule.threshold) {
                 continue;
             }
-            if !self.cooldown.should_fire_at(&rule.id, rule.cooldown_secs, now) {
+            if !self
+                .cooldown
+                .should_fire_at(&rule.id, rule.cooldown_secs, now)
+            {
                 continue;
             }
             self.cooldown.record_at(&rule.id, now);

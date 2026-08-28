@@ -15,7 +15,11 @@ fn simulation_source(n: usize) -> Vec<FeeRecord> {
     (0..n)
         .map(|i| {
             let base = 200u64;
-            let fee = if i % 10 == 0 { base * 3 } else { base + (i as u64 % 50) };
+            let fee = if i % 10 == 0 {
+                base * 3
+            } else {
+                base + (i as u64 % 50)
+            };
             FeeRecord {
                 fee_amount: fee,
                 ledger_sequence: i as u64,
@@ -41,9 +45,7 @@ fn bench_pipeline_throughput(c: &mut Criterion) {
         b.iter(|| {
             let sink: MemorySink<SpikeTransformerEvent> = MemorySink::new();
             for record in &source {
-                if let Some(event) =
-                    transformer.transform(FeeEvent::NewFeeRecord(record.clone()))
-                {
+                if let Some(event) = transformer.transform(FeeEvent::NewFeeRecord(record.clone())) {
                     sink.emit(&event).unwrap();
                 }
             }
