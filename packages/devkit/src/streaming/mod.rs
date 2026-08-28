@@ -14,7 +14,7 @@
 
 pub mod sink;
 
-pub use sink::StdoutSink;
+pub use sink::{MemorySink, StdoutSink};
 
 pub mod transformer;
 

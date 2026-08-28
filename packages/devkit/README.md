@@ -705,3 +705,57 @@ let ac = autocorrelation(&fees, 5);
 println!("Autocorrelation at lag 5: {:.3}", ac);
 assert_eq!(autocorrelation(&fees, 0), 1.0); // lag=0 is always 1.0
 ```
+
+## Streaming Pipeline
+
+The `streaming` module provides composable primitives for processing fee data
+as an event stream.
+
+### `FeeEvent`
+
+Events flowing through the pipeline (`streaming::FeeEvent`):
+
+- `NewFeeRecord(FeeRecord)` — a new fee record observed on the network.
+- `SpikeDetected(SpikeEvent)` — a fee spike classified by the analyzer.
+- `LedgerClosed(u64)` — a ledger closed; carries the sequence number.
+- `NetworkConditionChanged(String)` — a network condition label changed.
+- `PipelineError(String)` — a non-fatal pipeline error.
+
+### Sources
+
+A *source* produces `FeeEvent`s. For tests and benchmarks a simple simulation
+source is a `Vec<FeeRecord>` generated deterministically; in production the
+Horizon polling loop is the source.
+
+### Transformers
+
+- `SpikeDetectionTransformer::new(baseline, threshold)` — inspects each
+  `NewFeeRecord` and emits `SpikeTransformerEvent::SpikeDetected(..)` when the
+  fee exceeds `baseline × threshold`, otherwise `NoSpike`.
+
+### Sinks
+
+- `StdoutSink` — serialises each event as JSON and prints one line per event.
+- `MemorySink<T>` — retains every emitted event in a thread-safe, cloneable
+  in-memory store (`emit`, `len`, `is_empty`, `snapshot`). Ideal as a terminal
+  sink in tests and benchmarks.
+
+### Builder API
+
+A pipeline is assembled by wiring a source into a transformer and forwarding the
+results to a sink:
+
+```rust
+use stellar_devkit::streaming::{FeeRecord, MemorySink, SpikeDetectionTransformer};
+use stellar_devkit::streaming::transformer::FeeEvent;
+use stellar_devkit::streaming::SpikeTransformerEvent;
+
+let transformer = SpikeDetectionTransformer::new(200, 2.0);
+let sink: MemorySink<SpikeTransformerEvent> = MemorySink::new();
+
+for record in source /* : impl Iterator<Item = FeeRecord> */ {
+    if let Some(event) = transformer.transform(FeeEvent::NewFeeRecord(record)) {
+        sink.emit(&event).unwrap();
+    }
+}
+```

@@ -7,6 +7,74 @@
 
 use crate::error::DevkitError;
 use serde::Serialize;
+use std::sync::{Arc, Mutex};
+
+/// An in-memory pipeline sink that retains every emitted event.
+///
+/// Useful as a terminal sink in tests and benchmarks: events are cloned into a
+/// thread-safe backing store that can be inspected afterwards. The handle is
+/// cheaply cloneable (`Arc`-shared), so producer and assertion sites can hold
+/// independent references to the same store.
+///
+/// # Example
+///
+/// ```rust
+/// use stellar_devkit::streaming::sink::MemorySink;
+///
+/// let sink: MemorySink<u64> = MemorySink::new();
+/// sink.emit(&1).unwrap();
+/// sink.emit(&2).unwrap();
+/// assert_eq!(sink.len(), 2);
+/// assert_eq!(sink.snapshot(), vec![1, 2]);
+/// ```
+#[derive(Debug, Clone)]
+pub struct MemorySink<T> {
+    store: Arc<Mutex<Vec<T>>>,
+}
+
+impl<T> Default for MemorySink<T> {
+    fn default() -> Self {
+        Self {
+            store: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+}
+
+impl<T: Clone> MemorySink<T> {
+    /// Creates a new, empty in-memory sink.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Stores a clone of `event`.
+    ///
+    /// # Errors
+    ///
+    /// Currently infallible, but returns `Result` for parity with other sinks
+    /// so it can be swapped in without changing call sites.
+    pub fn emit(&self, event: &T) -> Result<(), DevkitError> {
+        self.store
+            .lock()
+            .map_err(|_| DevkitError::Simulation("memory sink mutex poisoned".into()))?
+            .push(event.clone());
+        Ok(())
+    }
+
+    /// Number of events retained.
+    pub fn len(&self) -> usize {
+        self.store.lock().map(|s| s.len()).unwrap_or(0)
+    }
+
+    /// Whether the sink holds no events.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns a snapshot copy of all retained events in emission order.
+    pub fn snapshot(&self) -> Vec<T> {
+        self.store.lock().map(|s| s.clone()).unwrap_or_default()
+    }
+}
 
 /// A pipeline sink that serialises each event as JSON and writes it to stdout.
 ///
