@@ -3,6 +3,7 @@ use stellar_devkit::protocol::parser::validate_fee_stats;
 
 fn valid_stats() -> HorizonFeeStats {
     HorizonFeeStats {
+        last_ledger: 1000,
         last_ledger_base_fee: 100,
         ledger_capacity_usage: 0.5,
         min: Some(100),

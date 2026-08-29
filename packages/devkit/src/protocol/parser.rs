@@ -7,7 +7,21 @@ pub fn parse_fee_stats(json: &str) -> Result<HorizonFeeStats, DevkitError> {
     let value: Value = serde_json::from_str(json)
         .map_err(|e| DevkitError::Protocol(format!("JSON parse error: {e}")))?;
 
-    let stats: HorizonFeeStats = serde_json::from_value(value.clone())
+    let Some(obj) = value.as_object() else {
+        return Err(DevkitError::Protocol("expected JSON object".to_string()));
+    };
+
+    if obj.is_empty() {
+        return Err(DevkitError::Protocol("empty JSON object".to_string()));
+    }
+
+    if value.get("last_ledger_base_fee").is_none() {
+        return Err(DevkitError::Protocol(
+            "missing required field last_ledger_base_fee".to_string(),
+        ));
+    }
+
+    let stats: HorizonFeeStats = serde_json::from_value(value)
         .map_err(|e| DevkitError::Protocol(format!("field deserialization error: {e}")))?;
 
     validate_fee_stats(&stats)?;
