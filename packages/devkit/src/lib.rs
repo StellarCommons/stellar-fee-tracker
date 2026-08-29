@@ -8,6 +8,7 @@ pub mod error;
 pub mod harness;
 pub mod io;
 pub mod monitoring;
+pub mod profiling;
 pub mod protocol;
 pub mod resilience;
 pub mod sandbox;

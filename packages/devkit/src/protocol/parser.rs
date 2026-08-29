@@ -7,7 +7,18 @@ pub fn parse_fee_stats(json: &str) -> Result<HorizonFeeStats, DevkitError> {
     let value: Value = serde_json::from_str(json)
         .map_err(|e| DevkitError::Protocol(format!("JSON parse error: {e}")))?;
 
-    let stats: HorizonFeeStats = serde_json::from_value(value.clone())
+    // If json is empty object or invalid, check required fields
+    if !value.is_object() || value.as_object().map_or(true, |o| o.is_empty()) {
+        return Err(DevkitError::Protocol("empty JSON object".to_string()));
+    }
+
+    if value.get("last_ledger_base_fee").is_none() {
+        return Err(DevkitError::Protocol(
+            "missing required field last_ledger_base_fee".to_string(),
+        ));
+    }
+
+    let stats: HorizonFeeStats = serde_json::from_value(value)
         .map_err(|e| DevkitError::Protocol(format!("field deserialization error: {e}")))?;
 
     validate_fee_stats(&stats)?;
@@ -31,20 +42,21 @@ pub fn validate_fee_stats(stats: &HorizonFeeStats) -> Result<(), DevkitError> {
         )));
     }
 
-    if let Some(ref fl) = stats.fee_charged {
-        if let (Some(p10), Some(p50), Some(p90), Some(p99)) = (fl.p10, fl.p50, fl.p90, fl.p99) {
-            if !(p10 <= p50 && p50 <= p90 && p90 <= p99) {
-                return Err(DevkitError::Protocol(format!(
-                    "fee_charged percentiles must be monotonic: p10={p10} p50={p50} p90={p90} p99={p99}"
-                )));
-            }
+    let fl = &stats.fee_charged;
+    if fl.p10 > 0 || fl.p50 > 0 || fl.p90 > 0 || fl.p99 > 0 {
+        if !(fl.p10 <= fl.p50 && fl.p50 <= fl.p90 && fl.p90 <= fl.p99) {
+            return Err(DevkitError::Protocol(format!(
+                "fee_charged percentiles must be monotonic: p10={} p50={} p90={} p99={}",
+                fl.p10, fl.p50, fl.p90, fl.p99
+            )));
         }
-        if let (Some(min), Some(mode), Some(max)) = (fl.min, fl.mode, fl.max) {
-            if !(min <= mode && mode <= max) {
-                return Err(DevkitError::Protocol(format!(
-                    "fee_charged min/mode/max must be ordered: min={min} mode={mode} max={max}"
-                )));
-            }
+    }
+    if fl.min > 0 || fl.mode > 0 || fl.max > 0 {
+        if !(fl.min <= fl.mode && fl.mode <= fl.max) {
+            return Err(DevkitError::Protocol(format!(
+                "fee_charged min/mode/max must be ordered: min={} mode={} max={}",
+                fl.min, fl.mode, fl.max
+            )));
         }
     }
 
