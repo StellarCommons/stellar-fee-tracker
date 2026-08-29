@@ -173,10 +173,7 @@ impl ProfilingReportBuilder {
     }
 
     /// Add multiple `CpuSample` instances to the builder.
-    pub fn add_cpu_samples(
-        &mut self,
-        samples: impl IntoIterator<Item = CpuSample>,
-    ) -> &mut Self {
+    pub fn add_cpu_samples(&mut self, samples: impl IntoIterator<Item = CpuSample>) -> &mut Self {
         self.cpu_samples.extend(samples);
         self
     }
@@ -188,10 +185,7 @@ impl ProfilingReportBuilder {
     }
 
     /// Add multiple `MemSample` instances to the builder.
-    pub fn add_mem_samples(
-        &mut self,
-        samples: impl IntoIterator<Item = MemSample>,
-    ) -> &mut Self {
+    pub fn add_mem_samples(&mut self, samples: impl IntoIterator<Item = MemSample>) -> &mut Self {
         self.mem_samples.extend(samples);
         self
     }
@@ -331,12 +325,22 @@ mod tests {
 
         let t1 = Utc::now();
         builder.add_cpu_sample(
-            CpuSample::new("fee_estimator", Duration::from_millis(10), Duration::from_millis(10), 100.0)
-                .with_timestamp(t1),
+            CpuSample::new(
+                "fee_estimator",
+                Duration::from_millis(10),
+                Duration::from_millis(10),
+                100.0,
+            )
+            .with_timestamp(t1),
         );
         builder.add_cpu_sample(
-            CpuSample::new("fee_estimator", Duration::from_millis(20), Duration::from_millis(20), 100.0)
-                .with_timestamp(t1),
+            CpuSample::new(
+                "fee_estimator",
+                Duration::from_millis(20),
+                Duration::from_millis(20),
+                100.0,
+            )
+            .with_timestamp(t1),
         );
         builder.add_mem_sample(MemSample::new("fee_estimator", 2048, 1024).with_timestamp(t1));
         builder.add_mem_sample(MemSample::new("fee_estimator", 4096, 2048).with_timestamp(t1));

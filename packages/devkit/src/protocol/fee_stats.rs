@@ -112,34 +112,36 @@ where
 /// Statistical percentile distribution of Stellar transaction fees.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct FeeDistribution {
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub min: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub max: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub mode: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub p10: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub p20: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub p30: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub p40: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub p50: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub p60: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub p70: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub p80: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub p90: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub p95: u64,
-    #[serde(default, deserialize_with = "deserialize_u64_lenient")]
-    pub p99: u64,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub min: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub max: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub mode: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub p10: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub p20: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub p30: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub p40: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub p50: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub p60: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub p70: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub p80: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub p90: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub p95: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub p99: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
+    pub transaction_count: Option<u64>,
 }
 
 /// Type alias for backward compatibility.
@@ -155,9 +157,9 @@ pub struct HorizonFeeStats {
     #[serde(default, deserialize_with = "deserialize_f64_lenient")]
     pub ledger_capacity_usage: f64,
     #[serde(default)]
-    pub fee_charged: FeeDistribution,
+    pub fee_charged: Option<FeeDistribution>,
     #[serde(default)]
-    pub max_fee: FeeDistribution,
+    pub max_fee: Option<FeeDistribution>,
 
     // Legacy/auxiliary top-level fields returned by Horizon
     #[serde(default, deserialize_with = "deserialize_opt_u64_lenient")]
