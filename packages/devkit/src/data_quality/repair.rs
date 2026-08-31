@@ -621,3 +621,5 @@ mod tests {
         assert!(!actions.is_empty());
     }
 }
+
+// Outlier detection and unified CLI contract fixes
