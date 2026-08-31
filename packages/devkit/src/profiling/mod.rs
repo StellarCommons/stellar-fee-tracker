@@ -7,4 +7,5 @@ pub mod sampler;
 pub use report::{FunctionProfileEntry, ProfilingReport, ProfilingReportBuilder};
 pub use sampler::{sample_cpu, sample_mem, CpuSample, MemSample};
 
+pub mod flamegraph;
 pub mod aggregator;

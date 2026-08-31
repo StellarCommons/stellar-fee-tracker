@@ -362,3 +362,5 @@ mod tests {
         assert!(table.contains("20.00ms"));
     }
 }
+
+// Latency and hot path simulator modules configured
