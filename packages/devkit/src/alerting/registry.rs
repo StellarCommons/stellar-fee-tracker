@@ -81,11 +81,7 @@ impl AlertRegistry {
 
     /// Only the currently-enabled rules — the set the engine evaluates.
     pub fn enabled_rules(&self) -> Vec<AlertRule> {
-        self.rules
-            .values()
-            .filter(|r| r.enabled)
-            .cloned()
-            .collect()
+        self.rules.values().filter(|r| r.enabled).cloned().collect()
     }
 
     /// Number of registered rules.

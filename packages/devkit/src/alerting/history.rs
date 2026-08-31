@@ -87,10 +87,7 @@ impl AlertHistory {
         self.events
             .iter()
             .filter(|e| {
-                query
-                    .rule_id
-                    .as_ref()
-                    .is_none_or(|id| &e.rule_id == id)
+                query.rule_id.as_ref().is_none_or(|id| &e.rule_id == id)
                     && query.severity.is_none_or(|s| e.severity == s)
                     && query.from.is_none_or(|f| e.triggered_at >= f)
                     && query.to.is_none_or(|t| e.triggered_at <= t)
