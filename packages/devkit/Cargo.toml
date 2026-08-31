@@ -79,3 +79,6 @@ harness = false
 [[bench]]
 name = "alerting_bench"
 harness = false
+
+[package.metadata.cross.target.x86_64-pc-windows-gnu]
+image = "gcr.io/cross-platform-win"

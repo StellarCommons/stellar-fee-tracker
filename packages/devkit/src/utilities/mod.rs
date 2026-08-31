@@ -6,3 +6,5 @@ pub mod formatters;
 pub mod json_reader;
 pub mod percentile_table;
 pub mod time;
+
+pub mod platform;
