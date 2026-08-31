@@ -159,3 +159,5 @@ mod tests {
         assert!(matches!(cloned, FeeEvent::LedgerClosed(7)));
     }
 }
+
+pub mod spike_tests;
