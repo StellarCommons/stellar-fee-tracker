@@ -35,10 +35,22 @@ fn fee_above_does_not_fire_at_or_below_threshold() {
     let ev = RuleEvaluator::new();
     let rules = [rule("r", AlertCondition::FeeAbove, 100)];
     assert!(ev
-        .evaluate(&rules, &FeeSnapshot { base_fee: 100, ..Default::default() })
+        .evaluate(
+            &rules,
+            &FeeSnapshot {
+                base_fee: 100,
+                ..Default::default()
+            }
+        )
         .is_empty());
     assert!(ev
-        .evaluate(&rules, &FeeSnapshot { base_fee: 99, ..Default::default() })
+        .evaluate(
+            &rules,
+            &FeeSnapshot {
+                base_fee: 99,
+                ..Default::default()
+            }
+        )
         .is_empty());
 }
 
@@ -83,12 +95,24 @@ fn fee_below_fires_when_fee_under_threshold() {
     let ev = RuleEvaluator::new();
     let rules = [rule("r", AlertCondition::FeeBelow, 50)];
     assert_eq!(
-        ev.evaluate(&rules, &FeeSnapshot { base_fee: 40, ..Default::default() })
-            .len(),
+        ev.evaluate(
+            &rules,
+            &FeeSnapshot {
+                base_fee: 40,
+                ..Default::default()
+            }
+        )
+        .len(),
         1
     );
     assert!(ev
-        .evaluate(&rules, &FeeSnapshot { base_fee: 50, ..Default::default() })
+        .evaluate(
+            &rules,
+            &FeeSnapshot {
+                base_fee: 50,
+                ..Default::default()
+            }
+        )
         .is_empty());
 }
 
@@ -112,12 +136,24 @@ fn spike_count_exceeds_fires_on_spike_metric() {
     let ev = RuleEvaluator::new();
     let rules = [rule("r", AlertCondition::SpikeCountExceeds, 3)];
     assert_eq!(
-        ev.evaluate(&rules, &FeeSnapshot { spike_count: 5, ..Default::default() })
-            .len(),
+        ev.evaluate(
+            &rules,
+            &FeeSnapshot {
+                spike_count: 5,
+                ..Default::default()
+            }
+        )
+        .len(),
         1
     );
     assert!(ev
-        .evaluate(&rules, &FeeSnapshot { spike_count: 3, ..Default::default() })
+        .evaluate(
+            &rules,
+            &FeeSnapshot {
+                spike_count: 3,
+                ..Default::default()
+            }
+        )
         .is_empty());
 }
 
