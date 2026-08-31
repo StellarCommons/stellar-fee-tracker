@@ -1,3 +1,4 @@
 [workspace]
 members = ["packages/core", "packages/devkit"]
 resolver = "2"
+# SQLite WAL Configured for Windows CI compatibility

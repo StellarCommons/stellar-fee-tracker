@@ -15,6 +15,8 @@ use sqlx::SqlitePool;
 /// migration fails.
 pub async fn create_pool(database_url: &str) -> Result<SqlitePool, sqlx::Error> {
     let pool = SqlitePool::connect(database_url).await?;
+    // Enforce WAL mode on Windows / Unix for concurrency
+    sqlx::query("PRAGMA journal_mode=WAL;").execute(&pool).await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
     Ok(pool)
 }
