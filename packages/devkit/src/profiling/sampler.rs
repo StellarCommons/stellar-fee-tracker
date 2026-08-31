@@ -97,3 +97,18 @@ pub fn sample_mem<T, F: FnOnce() -> T>(
     };
     (result, sample)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_sample_cpu_custom_closure() {
+        let (res, sample) = sample_cpu("custom_closure", || {
+            let mut sum = 0;
+            for i in 0..1000 { sum += i; }
+            sum
+        });
+        assert_eq!(res, 499500);
+        assert_eq!(sample.label, "custom_closure");
+    }
+}
