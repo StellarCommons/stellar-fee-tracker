@@ -75,3 +75,7 @@ harness = false
 [[bench]]
 name = "streaming_bench"
 harness = false
+
+[[bench]]
+name = "alerting_bench"
+harness = false
