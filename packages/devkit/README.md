@@ -13,6 +13,47 @@ Developer toolkit for the Stellar Fee Tracker. Provides utilities for testing, m
 - No database connections
 - All external I/O must be injectable or mockable
 
+## Platform Support
+
+`stellar-devkit` is designed and verified for cross-platform reliability across standard operating systems and architectures.
+
+### Supported Operating Systems & Architectures
+
+| Operating System | Architecture | Target Triple | Support Status | Notes |
+|---|---|---|---|---|
+| **Linux** | `x86_64` | `x86_64-unknown-linux-gnu` | Tier 1 (CI Verified) | Primary Linux development and server target |
+| **Linux** | `aarch64` | `aarch64-unknown-linux-gnu` | Tier 1 (CI Verified) | ARM64 Linux servers and developer boards |
+| **macOS** | `aarch64` | `aarch64-apple-darwin` | Tier 1 (CI Verified) | Apple Silicon (M1/M2/M3/M4) |
+| **macOS** | `x86_64` | `x86_64-apple-darwin` | Tier 1 (CI Verified) | Intel macOS |
+| **Windows** | `x86_64` | `x86_64-pc-windows-msvc` | Tier 1 (CI Verified) | Windows 10 & 11 (MSVC environment) |
+
+### Continuous Integration (CI) Matrix
+
+Automated GitHub Actions workflows validate the devkit crate on every pull request across the platform matrix:
+- `ubuntu-latest` (Linux x86_64)
+- `macos-latest` (macOS aarch64)
+- `windows-latest` (Windows x86_64 MSVC)
+
+Test execution confirms identical scenario simulation output, determinism under fixed RNG seeds, and cross-platform SQLite/file serialisation.
+
+### Cross-Compilation
+
+To cross-compile `stellar-devkit` for alternate target environments, install the target toolchain using `rustup` and execute `cargo build`:
+
+```bash
+# Cross-compile for Linux ARM64 (aarch64)
+rustup target add aarch64-unknown-linux-gnu
+cargo build -p stellar-devkit --target aarch64-unknown-linux-gnu
+
+# Cross-compile for Windows from Linux/macOS
+cargo build -p stellar-devkit --target x86_64-pc-windows-gnu
+```
+
+### Known Limitations
+
+- **File Locking Semantics**: The simulation harness and SQLite scenario caches rely on OS-level file advisory locks (`flock` on Unix-like systems and `LockFileEx` on Windows). Network filesystems (e.g. NFS, SMB mounts) may exhibit non-deterministic locking behavior; running simulations against local storage volumes is recommended.
+- **Clock Granularity**: Monotonic timing measurements (`std::time::Instant`) provide sub-microsecond precision on native hardware. In virtualized containers or nested emulation environments, timer resolution may be constrained by the hypervisor tick interval (typically ~1ms).
+
 ## Modules
 
 | Module | Description |
