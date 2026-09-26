@@ -1,0 +1,1 @@
+pub fn detect_platform() {\n    // Platform detection\n}\n

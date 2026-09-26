@@ -1,0 +1,1 @@
+pub fn sample_cpu_usage() {\n    // Lightweight CPU sampler\n}\n
