@@ -1,0 +1,14 @@
+{
+  "name": "congestion",
+  "description": "Fees climbing steadily while congestion clears, with a raised max fee.",
+  "records": [
+    { "ledger": 200, "fee_charged": 150, "max_fee": 1000 },
+    { "ledger": 201, "fee_charged": 200, "max_fee": 1000 },
+    { "ledger": 202, "fee_charged": 260, "max_fee": 1000 },
+    { "ledger": 203, "fee_charged": 320, "max_fee": 1000 },
+    { "ledger": 204, "fee_charged": 380, "max_fee": 1000 },
+    { "ledger": 205, "fee_charged": 420, "max_fee": 1000 },
+    { "ledger": 206, "fee_charged": 400, "max_fee": 1000 },
+    { "ledger": 207, "fee_charged": 360, "max_fee": 1000 }
+  ]
+}

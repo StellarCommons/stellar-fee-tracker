@@ -1,0 +1,14 @@
+{
+  "name": "spike",
+  "description": "A single outlier ledger surrounded by a flat base fee.",
+  "records": [
+    { "ledger": 400, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 401, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 402, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 403, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 404, "fee_charged": 100000, "max_fee": 100000 },
+    { "ledger": 405, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 406, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 407, "fee_charged": 100, "max_fee": 100 }
+  ]
+}
