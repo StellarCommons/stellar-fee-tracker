@@ -1,0 +1,14 @@
+{
+  "name": "surge",
+  "description": "A short burst of expensive ledgers surrounded by normal traffic.",
+  "records": [
+    { "ledger": 300, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 301, "fee_charged": 2000, "max_fee": 5000 },
+    { "ledger": 302, "fee_charged": 2000, "max_fee": 5000 },
+    { "ledger": 303, "fee_charged": 2500, "max_fee": 5000 },
+    { "ledger": 304, "fee_charged": 2000, "max_fee": 5000 },
+    { "ledger": 305, "fee_charged": 1500, "max_fee": 5000 },
+    { "ledger": 306, "fee_charged": 400, "max_fee": 1000 },
+    { "ledger": 307, "fee_charged": 150, "max_fee": 1000 }
+  ]
+}

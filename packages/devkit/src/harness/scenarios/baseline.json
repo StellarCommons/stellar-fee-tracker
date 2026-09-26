@@ -1,0 +1,14 @@
+{
+  "name": "baseline",
+  "description": "Steady network holding the base fee on every ledger.",
+  "records": [
+    { "ledger": 100, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 101, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 102, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 103, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 104, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 105, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 106, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 107, "fee_charged": 100, "max_fee": 100 }
+  ]
+}
