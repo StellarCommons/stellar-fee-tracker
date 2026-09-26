@@ -1,0 +1,1 @@
+pub fn write_to_stdout() {\n    // Stdout sink\n}\n

@@ -1,0 +1,1 @@
+pub fn run_streaming_pipeline() {\n    // Streaming pipeline\n}\n
