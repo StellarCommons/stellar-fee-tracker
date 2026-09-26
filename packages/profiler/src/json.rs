@@ -1,0 +1,1 @@
+pub fn format_json_report() {\n    // JSON formatting logic\n}\n
