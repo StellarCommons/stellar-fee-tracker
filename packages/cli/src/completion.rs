@@ -1,0 +1,1 @@
+pub fn generate_completions() {\n    // CLI shell completions\n}\n

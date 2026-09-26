@@ -1,0 +1,1 @@
+pub fn increment_counter() {\n    // Basic metrics counter\n}\n
