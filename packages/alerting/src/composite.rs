@@ -1,0 +1,1 @@
+pub fn create_composite_alert() {\n    // Multi-metric alerts\n}\n
