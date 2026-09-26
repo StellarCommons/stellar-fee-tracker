@@ -1,0 +1,1 @@
+pub fn with_timeout() {\n    // Timeout wrapper\n}\n

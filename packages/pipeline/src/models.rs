@@ -1,0 +1,1 @@
+pub enum FeeEvent {\n    Spike,\n    Drop,\n}\n
