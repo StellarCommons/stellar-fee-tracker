@@ -1,0 +1,14 @@
+{
+  "name": "idle",
+  "description": "An underpaid network where submissions advertise a high max fee.",
+  "records": [
+    { "ledger": 500, "fee_charged": 100, "max_fee": 5000 },
+    { "ledger": 501, "fee_charged": 100, "max_fee": 5000 },
+    { "ledger": 502, "fee_charged": 100, "max_fee": 5000 },
+    { "ledger": 503, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 504, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 505, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 506, "fee_charged": 100, "max_fee": 100 },
+    { "ledger": 507, "fee_charged": 100, "max_fee": 100 }
+  ]
+}
