@@ -141,3 +141,7 @@ Key points:
 - Write tests for any new functionality
 - Ensure `cargo test --all` passes before submitting a PR
 - PR descriptions must include `Closes #<issue-number>` for any issues being resolved
+
+
+## Cross-Platform & Build Support
+This project supports Linux, macOS, and Windows environments with automated toolchains.
