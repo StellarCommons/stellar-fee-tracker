@@ -52,3 +52,6 @@ proptest-regressions/
 # ── Misc ──────────────────────────────────────────────────────────────────────
 *.pem
 .vercel
+
+clippy-results.txt
+test-results.txt
