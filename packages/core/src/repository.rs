@@ -74,6 +74,27 @@ pub struct Recommendation {
     pub computed_at: String,
 }
 
+/// Static WHERE-clause fragments for the alert-event filters. Each fragment is
+/// a fixed string (values are always bound, never interpolated), and the order
+/// matches the order callers must bind: severity, delivered, alert_type.
+fn alert_event_conditions(
+    severity: Option<&str>,
+    delivered: Option<bool>,
+    alert_type: Option<&str>,
+) -> Vec<&'static str> {
+    let mut conditions = vec!["1=1"];
+    if severity.is_some() {
+        conditions.push("severity = ?");
+    }
+    if delivered.is_some() {
+        conditions.push("delivered = ?");
+    }
+    if alert_type.is_some() {
+        conditions.push("alert_type = ?");
+    }
+    conditions
+}
+
 /// Repository for reading and writing fee data to SQLite.
 pub struct FeeRepository {
     pool: SqlitePool,
@@ -530,142 +551,29 @@ impl FeeRepository {
         Ok(())
     }
 
-    /// Query alert history with optional filters. `limit` is clamped to 100.
+    /// Query alert history, newest first. Delegates to
+    /// [`Self::query_alert_history_by_type`] with no alert-type filter.
+    #[allow(dead_code)]
     pub async fn query_alert_history(
         &self,
         limit: i64,
         severity_filter: Option<&str>,
         delivered_filter: Option<bool>,
     ) -> Result<Vec<AlertEvent>, sqlx::Error> {
-        let limit = limit.clamp(1, 100);
-
-        // Build query dynamically based on provided filters.
-        // SQLite doesn't have great support for optional binds, so we use
-        // a WHERE 1=1 pattern and append conditions.
-        let mut conditions = vec!["1=1"];
-        let mut severity_cond = false;
-        let mut delivered_cond = false;
-
-        if severity_filter.is_some() {
-            severity_cond = true;
-            conditions.push("severity = ?");
-        }
-        if delivered_filter.is_some() {
-            delivered_cond = true;
-            conditions.push("delivered = ?");
-        }
-
-        let sql = format!(
-            "SELECT id, config_id, alert_type, severity, peak_fee, baseline_fee, spike_ratio, webhook_url, delivered, triggered_at, correlation_id
-             FROM alert_events
-             WHERE {}
-             ORDER BY triggered_at DESC
-             LIMIT ?",
-            conditions.join(" AND ")
-        );
-
-        let _ = (severity_cond, delivered_cond); // suppress warnings
-
-        let rows = {
-            let mut q = sqlx::query(&sql);
-            if let Some(sev) = severity_filter {
-                q = q.bind(sev);
-            }
-            if let Some(del) = delivered_filter {
-                q = q.bind(if del { 1i64 } else { 0i64 });
-            }
-            q.bind(limit).fetch_all(&self.pool).await?
-        };
-
-        let events = rows
-            .into_iter()
-            .filter_map(|row| {
-                use sqlx::Row;
-                macro_rules! col {
-                    ($col:literal, $T:ty) => {
-                        match row.try_get::<$T, _>($col) {
-                            Ok(v) => v,
-                            Err(e) => {
-                                tracing::error!(
-                                    "alert_events row decode error (column {}): {}",
-                                    $col,
-                                    e
-                                );
-                                return None;
-                            }
-                        }
-                    };
-                }
-
-                let id: i64 = col!("id", i64);
-                let config_id: Option<i64> = col!("config_id", Option<i64>);
-                let alert_type: String = col!("alert_type", String);
-                let severity: String = col!("severity", String);
-                let peak_fee: i64 = col!("peak_fee", i64);
-                let baseline_fee: f64 = col!("baseline_fee", f64);
-                let spike_ratio: f64 = col!("spike_ratio", f64);
-                let webhook_url: String = col!("webhook_url", String);
-                let delivered: i64 = col!("delivered", i64);
-                let triggered_at: String = col!("triggered_at", String);
-                let correlation_id: Option<String> = col!("correlation_id", Option<String>);
-
-                Some(AlertEvent {
-                    id: Some(id),
-                    config_id,
-                    alert_type,
-                    severity,
-                    peak_fee,
-                    baseline_fee,
-                    spike_ratio,
-                    webhook_url,
-                    delivered: delivered != 0,
-                    triggered_at,
-                    correlation_id,
-                })
-            })
-            .collect();
-
-        Ok(events)
+        self.query_alert_history_by_type(limit, severity_filter, delivered_filter, None)
+            .await
     }
 
     /// Count alert events matching optional filters (for pagination totals).
+    /// Delegates to [`Self::count_alert_events_by_type`].
     #[allow(dead_code)]
     pub async fn count_alert_events(
         &self,
         severity_filter: Option<&str>,
         delivered_filter: Option<bool>,
     ) -> Result<i64, sqlx::Error> {
-        let mut conditions = vec!["1=1".to_string()];
-
-        if severity_filter.is_some() {
-            conditions.push("severity = ?".to_string());
-        }
-        if delivered_filter.is_some() {
-            conditions.push("delivered = ?".to_string());
-        }
-
-        let sql = format!(
-            "SELECT COUNT(*) as cnt FROM alert_events WHERE {}",
-            conditions.join(" AND ")
-        );
-
-        let row = {
-            let mut q = sqlx::query(&sql);
-            if let Some(sev) = severity_filter {
-                q = q.bind(sev);
-            }
-            if let Some(del) = delivered_filter {
-                q = q.bind(if del { 1i64 } else { 0i64 });
-            }
-            q.fetch_one(&self.pool).await?
-        };
-
-        use sqlx::Row;
-        let count: i64 = row.try_get("cnt").map_err(|e| {
-            tracing::error!("Failed to decode COUNT(*) result from alert_events: {}", e);
-            e
-        })?;
-        Ok(count)
+        self.count_alert_events_by_type(severity_filter, delivered_filter, None)
+            .await
     }
 
     /// Query alert history filtered additionally by alert_type. Same
@@ -679,16 +587,8 @@ impl FeeRepository {
     ) -> Result<Vec<AlertEvent>, sqlx::Error> {
         let limit = limit.clamp(1, 100);
 
-        let mut conditions = vec!["1=1"];
-        if severity_filter.is_some() {
-            conditions.push("severity = ?");
-        }
-        if delivered_filter.is_some() {
-            conditions.push("delivered = ?");
-        }
-        if alert_type_filter.is_some() {
-            conditions.push("alert_type = ?");
-        }
+        let conditions =
+            alert_event_conditions(severity_filter, delivered_filter, alert_type_filter);
 
         let sql = format!(
             "SELECT id, config_id, alert_type, severity, peak_fee, baseline_fee, spike_ratio, webhook_url, delivered, triggered_at, correlation_id
@@ -771,16 +671,8 @@ impl FeeRepository {
         delivered_filter: Option<bool>,
         alert_type_filter: Option<&str>,
     ) -> Result<i64, sqlx::Error> {
-        let mut conditions = vec!["1=1".to_string()];
-        if severity_filter.is_some() {
-            conditions.push("severity = ?".to_string());
-        }
-        if delivered_filter.is_some() {
-            conditions.push("delivered = ?".to_string());
-        }
-        if alert_type_filter.is_some() {
-            conditions.push("alert_type = ?".to_string());
-        }
+        let conditions =
+            alert_event_conditions(severity_filter, delivered_filter, alert_type_filter);
 
         let sql = format!(
             "SELECT COUNT(*) as cnt FROM alert_events WHERE {}",

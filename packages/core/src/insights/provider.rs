@@ -2,8 +2,6 @@
 //!
 //! Provides abstraction layer for different fee data sources
 
-#![allow(dead_code)]
-
 use crate::insights::{error::ProviderError, types::FeeDataPoint};
 use async_trait::async_trait;
 
@@ -17,18 +15,21 @@ pub trait FeeDataProvider {
     fn provider_name(&self) -> &str;
 
     /// Check if the provider is currently available
+    #[allow(dead_code)]
     async fn health_check(&self) -> Result<(), ProviderError> {
         // Default implementation - just try to fetch data
         self.fetch_latest_fees().await.map(|_| ())
     }
 
     /// Get provider-specific configuration or metadata
+    #[allow(dead_code)]
     fn get_metadata(&self) -> ProviderMetadata {
         ProviderMetadata::default()
     }
 }
 
 /// Metadata about a fee data provider
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ProviderMetadata {
     pub supports_historical: bool,
@@ -49,4 +50,5 @@ impl Default for ProviderMetadata {
 }
 
 /// Result type for provider operations
+#[allow(dead_code)]
 pub type ProviderResult<T> = Result<T, ProviderError>;

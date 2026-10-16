@@ -12,7 +12,9 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use super::headers::{cache_control, compute_etag, if_none_match_matches, last_modified};
+use super::headers::{
+    cache_control, compute_etag, fallback_response, if_none_match_matches, last_modified,
+};
 use crate::insights::{CongestionTrends, FeeExtremes, FeeInsightsEngine, RollingAverages};
 
 /// Shared state for the insights API
@@ -52,7 +54,7 @@ async fn get_current_insights(
             .header(header::ETAG, etag.as_str())
             .header(header::LAST_MODIFIED, last_modified_value)
             .body(Body::empty())
-            .expect("304 insights response should be valid"));
+            .unwrap_or_else(|err| fallback_response("304 insights", err)));
     }
 
     Ok(Response::builder()
@@ -62,7 +64,7 @@ async fn get_current_insights(
         .header(header::ETAG, etag.as_str())
         .header(header::LAST_MODIFIED, last_modified_value)
         .body(Body::from(body))
-        .expect("insights response should be valid"))
+        .unwrap_or_else(|err| fallback_response("insights", err)))
 }
 
 /// Get rolling averages

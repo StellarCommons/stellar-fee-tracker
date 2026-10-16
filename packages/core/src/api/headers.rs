@@ -19,6 +19,13 @@ pub fn compute_etag(body: &[u8]) -> String {
     format!("\"{:x}\"", hash)
 }
 
+/// Fallback used when building an HTTP response fails: log the error and return
+/// an empty response instead of panicking inside a request handler.
+pub fn fallback_response(what: &str, err: impl std::fmt::Display) -> axum::response::Response {
+    tracing::error!("Failed to build {} response: {}", what, err);
+    axum::response::Response::new(axum::body::Body::empty())
+}
+
 /// Build a Cache-Control value using max-age and stale-while-revalidate.
 pub fn cache_control(max_age: u32, swr: u32) -> HeaderValue {
     // Inputs are u32 — the formatted string is always valid ASCII.

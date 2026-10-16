@@ -9,5 +9,5 @@ pub async fn health() -> impl IntoResponse {
         .status(StatusCode::OK)
         .header(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))
         .body(Body::from("ok"))
-        .expect("health response should be valid")
+        .unwrap_or_else(|err| super::headers::fallback_response("health", err))
 }
