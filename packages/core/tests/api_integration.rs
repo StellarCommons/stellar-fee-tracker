@@ -99,7 +99,7 @@ fn make_fee_points(count: usize) -> Vec<FeeDataPoint> {
         .map(|i| FeeDataPoint {
             fee_amount: 100 + (i as u64 * 10),
             timestamp: now - ChronoDuration::minutes((count - i) as i64),
-            transaction_hash: format!("txhash{:06}", i),
+            transaction_hash: format!("{:064x}", i),
             ledger_sequence: 50_000_000 + i as u64,
         })
         .collect()
@@ -820,9 +820,10 @@ async fn wait_advisory_returns_200() {
 
 #[tokio::test]
 async fn transaction_lookup_returns_known_hash() {
-    let (status, json) = get_json("/fees/transaction/txhash000001").await;
+    let hash = format!("{:064x}", 1);
+    let (status, json) = get_json(&format!("/fees/transaction/{}", hash)).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(json["transaction_hash"], "txhash000001");
+    assert_eq!(json["transaction_hash"], hash);
 }
 
 #[tokio::test]
@@ -856,7 +857,7 @@ async fn recommend_post_valid_request_returns_200() {
                 .method("POST")
                 .uri("/fees/recommend")
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"target_ledgers":2,"urgency":"medium"}"#))
+                .body(Body::from(r#"{"target_ledgers":2,"urgency":"Medium"}"#))
                 .unwrap(),
         )
         .await
