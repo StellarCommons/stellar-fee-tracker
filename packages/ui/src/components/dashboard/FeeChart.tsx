@@ -17,6 +17,9 @@ interface Props {
   history: FeeHistoryResponse | null;
   window: "1h" | "6h" | "24h";
   onWindowChange: (w: "1h" | "6h" | "24h") => void;
+  /** The most recent /fees/history request failed. */
+  unavailable?: boolean;
+  onRetry?: () => void;
 }
 
 const WINDOWS: ("1h" | "6h" | "24h")[] = ["1h", "6h", "24h"];
@@ -46,26 +49,42 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
     <div className="card px-3 py-2 text-xs font-mono border-accent-green/30">
       <div className="text-text-muted mb-1">{label}</div>
       <div className="text-accent-green font-bold">
-        {fee?.toLocaleString()} stroops
+        {fee != null ? formatStroops(fee) : "—"}
       </div>
     </div>
   );
 }
 
-export function FeeChart({ history, window, onWindowChange }: Props) {
+export function FeeChart({
+  history,
+  window,
+  onWindowChange,
+  unavailable = false,
+  onRetry,
+}: Props) {
   const points = history?.fees ?? [];
 
-  // Downsample for readability if too many points
+  // Downsample for readability if too many points. The last point is always
+  // kept: it is the newest ledger and the likeliest place for a spike, so
+  // dropping it would hide exactly what the chart is for.
   const maxPoints = 200;
   const step =
     points.length > maxPoints ? Math.ceil(points.length / maxPoints) : 1;
-  const chartData = points
-    .filter((_, i) => i % step === 0)
-    .map((p: FeeDataPoint) => ({
-      time: formatTime(p.timestamp, window),
-      fee: p.fee_amount,
-      ledger: p.ledger_sequence,
-    }));
+  const sampled =
+    step === 1 ? points : points.filter((_, i) => i % step === 0);
+  const lastPoint = points[points.length - 1];
+  const visiblePoints =
+    lastPoint && sampled[sampled.length - 1] !== lastPoint
+      ? [...sampled, lastPoint]
+      : sampled;
+  const chartData = visiblePoints.map((p: FeeDataPoint) => ({
+    time: formatTime(p.timestamp, window),
+    // Formatted times repeat across a 24h window, so the tooltip label uses the
+    // full ISO timestamp the point actually came from.
+    iso: p.timestamp,
+    fee: p.fee_amount,
+    ledger: p.ledger_sequence,
+  }));
 
   const avg = history?.summary.avg ?? 0;
   const p95 = history?.summary.p95 ?? 0;
@@ -90,11 +109,9 @@ export function FeeChart({ history, window, onWindowChange }: Props) {
             <div className="text-xs text-text-secondary font-mono mt-1">
               {count.toLocaleString()} transactions
               <span className="text-text-muted"> · avg </span>
-              <span className="text-accent-cyan">{avg.toFixed(0)} str</span>
+              <span className="text-accent-cyan">{formatStroops(avg)}</span>
               <span className="text-text-muted"> · p95 </span>
-              <span className="text-accent-yellow">
-                {p95.toLocaleString()} str
-              </span>
+              <span className="text-accent-yellow">{formatStroops(p95)}</span>
             </div>
           )}
         </div>
@@ -121,8 +138,20 @@ export function FeeChart({ history, window, onWindowChange }: Props) {
 
       {/* Chart */}
       {chartData.length === 0 ? (
-        <div className="h-64 flex items-center justify-center text-text-muted text-sm font-mono">
-          No data yet — waiting for first poll cycle...
+        <div className="h-64 flex flex-col items-center justify-center gap-3 text-text-muted text-sm font-mono">
+          <span>
+            {unavailable && !history
+              ? "Fee history unavailable"
+              : "No data yet — waiting for first poll cycle..."}
+          </span>
+          {unavailable && !history && onRetry && (
+            <button
+              onClick={onRetry}
+              className="px-3 py-1.5 rounded bg-accent-green/10 border border-accent-green/30 text-accent-green text-xs font-mono hover:bg-accent-green/20 transition-colors"
+            >
+              Retry
+            </button>
+          )}
         </div>
       ) : (
         <div role="img" aria-label={chartLabel}>

@@ -7,8 +7,18 @@ permissions:
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'packages/devkit/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/devkit-ci.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'packages/devkit/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/devkit-ci.yml'
 
 jobs:
   build:
@@ -22,6 +32,6 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Run Cargo Check
-        run: cargo check --workspace
+        run: cargo check -p stellar-devkit
       - name: Run Cargo Test
-        run: cargo test --workspace
+        run: cargo test -p stellar-devkit
