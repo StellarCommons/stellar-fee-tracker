@@ -36,6 +36,9 @@ impl WindowedPercentile {
     }
 
     pub fn push(&mut self, value: f64) {
+        if self.capacity == 0 {
+            return;
+        }
         if self.values.len() == self.capacity {
             self.values.pop_front();
         }
