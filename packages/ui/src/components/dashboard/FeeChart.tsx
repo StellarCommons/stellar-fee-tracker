@@ -11,7 +11,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import type { FeeHistoryResponse, FeeDataPoint } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, formatStroops } from "@/lib/utils";
 
 interface Props {
   history: FeeHistoryResponse | null;
@@ -71,6 +71,13 @@ export function FeeChart({ history, window, onWindowChange }: Props) {
   const p95 = history?.summary.p95 ?? 0;
   const count = history?.data_points ?? 0;
 
+  // The chart itself is an SVG with no text alternative, so the plot is exposed
+  // as a single image whose label carries the numbers a screen reader would
+  // otherwise have to guess. The toggle buttons stay outside this wrapper.
+  const chartLabel = history
+    ? `Fee history for the last ${window}: ${count.toLocaleString()} transactions, average ${formatStroops(avg)} stroops, 95th percentile ${formatStroops(p95)} stroops.`
+    : "No fee history available.";
+
   return (
     <div className="card p-5">
       {/* Header */}
@@ -98,6 +105,7 @@ export function FeeChart({ history, window, onWindowChange }: Props) {
             <button
               key={w}
               onClick={() => onWindowChange(w)}
+              aria-pressed={window === w}
               className={cn(
                 "px-3 py-1 text-xs font-mono rounded border transition-colors",
                 window === w
@@ -117,78 +125,80 @@ export function FeeChart({ history, window, onWindowChange }: Props) {
           No data yet — waiting for first poll cycle...
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart
-            data={chartData}
-            margin={{ top: 4, right: 4, bottom: 4, left: 0 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e2a36" />
-            <XAxis
-              dataKey="time"
-              tick={{
-                fill: "#3d5a73",
-                fontSize: 10,
-                fontFamily: "JetBrains Mono",
-              }}
-              tickLine={false}
-              axisLine={{ stroke: "#1e2a36" }}
-              interval="preserveStartEnd"
-            />
-            <YAxis
-              tick={{
-                fill: "#3d5a73",
-                fontSize: 10,
-                fontFamily: "JetBrains Mono",
-              }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v) => `${v.toLocaleString()}`}
-              width={70}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            {avg > 0 && (
-              <ReferenceLine
-                y={avg}
-                stroke="#00d4ff"
-                strokeDasharray="4 4"
-                strokeOpacity={0.5}
-                label={{
-                  value: "avg",
-                  fill: "#00d4ff",
-                  fontSize: 9,
+        <div role="img" aria-label={chartLabel}>
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart
+              data={chartData}
+              margin={{ top: 4, right: 4, bottom: 4, left: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e2a36" />
+              <XAxis
+                dataKey="time"
+                tick={{
+                  fill: "#3d5a73",
+                  fontSize: 10,
                   fontFamily: "JetBrains Mono",
                 }}
+                tickLine={false}
+                axisLine={{ stroke: "#1e2a36" }}
+                interval="preserveStartEnd"
               />
-            )}
-            {p95 > 0 && (
-              <ReferenceLine
-                y={p95}
-                stroke="#ffd23f"
-                strokeDasharray="4 4"
-                strokeOpacity={0.4}
-                label={{
-                  value: "p95",
-                  fill: "#ffd23f",
-                  fontSize: 9,
+              <YAxis
+                tick={{
+                  fill: "#3d5a73",
+                  fontSize: 10,
                   fontFamily: "JetBrains Mono",
                 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => `${v.toLocaleString()}`}
+                width={70}
               />
-            )}
-            <Line
-              type="monotone"
-              dataKey="fee"
-              stroke="#00ff9d"
-              strokeWidth={1.5}
-              dot={false}
-              activeDot={{
-                r: 4,
-                fill: "#00ff9d",
-                stroke: "#080b0f",
-                strokeWidth: 2,
-              }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+              <Tooltip content={<CustomTooltip />} />
+              {avg > 0 && (
+                <ReferenceLine
+                  y={avg}
+                  stroke="#00d4ff"
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.5}
+                  label={{
+                    value: "avg",
+                    fill: "#00d4ff",
+                    fontSize: 9,
+                    fontFamily: "JetBrains Mono",
+                  }}
+                />
+              )}
+              {p95 > 0 && (
+                <ReferenceLine
+                  y={p95}
+                  stroke="#ffd23f"
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.4}
+                  label={{
+                    value: "p95",
+                    fill: "#ffd23f",
+                    fontSize: 9,
+                    fontFamily: "JetBrains Mono",
+                  }}
+                />
+              )}
+              <Line
+                type="monotone"
+                dataKey="fee"
+                stroke="#00ff9d"
+                strokeWidth={1.5}
+                dot={false}
+                activeDot={{
+                  r: 4,
+                  fill: "#00ff9d",
+                  stroke: "#080b0f",
+                  strokeWidth: 2,
+                }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       )}
     </div>
   );

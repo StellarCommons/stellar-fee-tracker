@@ -48,7 +48,7 @@ export function RecommendationPanel() {
   }
 
   return (
-    <div className="rounded-xl border border-border-base bg-bg-card p-5 transition-all">
+    <div className="rounded-xl border border-bg-border bg-bg-card p-5 transition-all">
       <h3 className="text-sm font-semibold tracking-wide text-text-muted uppercase mb-4">
         Fee Recommendation
       </h3>
@@ -64,8 +64,8 @@ export function RecommendationPanel() {
                 onClick={() => handleConfidenceChange(c)}
                 className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors ${
                   confidence === c
-                    ? 'border-accent-blue bg-accent-blue/10 text-accent-blue'
-                    : 'border-border-base bg-bg-base text-text-muted hover:bg-bg-card'
+                    ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan'
+                    : 'border-bg-border bg-bg-base text-text-muted hover:bg-bg-card'
                 }`}
               >
                 {c}%
@@ -79,7 +79,7 @@ export function RecommendationPanel() {
           <select
             value={urgency}
             onChange={(e) => setUrgency(e.target.value as Urgency)}
-            className="w-full rounded-lg border border-border-base bg-bg-base px-3 py-2 text-sm text-text-base focus:outline-none focus:ring-2 focus:ring-accent-blue/40"
+            className="w-full rounded-lg border border-bg-border bg-bg-base px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-cyan/40"
           >
             {URGENCY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -97,14 +97,14 @@ export function RecommendationPanel() {
             max={100}
             value={targetLedgers}
             onChange={(e) => setTargetLedgers(Number(e.target.value))}
-            className="w-full rounded-lg border border-border-base bg-bg-base px-3 py-2 text-sm text-text-base focus:outline-none focus:ring-2 focus:ring-accent-blue/40"
+            className="w-full rounded-lg border border-bg-border bg-bg-base px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-cyan/40"
           />
         </div>
 
         <button
           onClick={handleRecommend}
           disabled={loading}
-          className="w-full rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-blue/90 disabled:opacity-50"
+          className="w-full rounded-lg bg-accent-cyan px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-cyan/90 disabled:opacity-50"
         >
           {loading ? 'Calculating...' : 'Get Recommendation'}
         </button>
@@ -137,7 +137,7 @@ export function RecommendationPanel() {
 
           <button
             onClick={clear}
-            className="w-full rounded-lg border border-border-base px-4 py-1.5 text-xs text-text-muted transition-colors hover:bg-bg-base"
+            className="w-full rounded-lg border border-bg-border px-4 py-1.5 text-xs text-text-muted transition-colors hover:bg-bg-base"
           >
             Clear
           </button>

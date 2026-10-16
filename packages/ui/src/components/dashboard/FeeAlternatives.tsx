@@ -11,7 +11,7 @@ const TIER_STYLES: Record<string, { border: string; label: string }> = {
 
 function tierStyle(label: string) {
   const key = label.toLowerCase()
-  return TIER_STYLES[key] ?? { border: 'border-border-base', label: 'text-text-base' }
+  return TIER_STYLES[key] ?? { border: 'border-bg-border', label: 'text-text-primary' }
 }
 
 interface Props {
@@ -39,7 +39,7 @@ export function FeeAlternatives({ alternatives }: Props) {
               className={`rounded-lg border ${border} bg-bg-base px-2 py-2.5 text-left transition-colors hover:bg-bg-card`}
             >
               <p className={`text-xs font-semibold capitalize ${labelColor}`}>{alt.label}</p>
-              <p className="text-sm font-bold text-text-base tabular-nums mt-1">
+              <p className="text-sm font-bold text-text-primary tabular-nums mt-1">
                 {formatStroops(Number(alt.fee))}
               </p>
               <p className="text-xs text-text-muted mt-0.5">
