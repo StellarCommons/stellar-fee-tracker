@@ -23,7 +23,7 @@ clap = { version = "4", features = ["derive"] }
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt", "time"] }
 proptest = "1"
-wiremock = "0.5"
+wiremock = "0.6"
 reqwest = "0.11"
 criterion = "0.5"
 
