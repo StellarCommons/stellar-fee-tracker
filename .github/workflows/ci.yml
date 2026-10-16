@@ -25,9 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust (stable + rustfmt + clippy)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust (1.99.1 + rustfmt + clippy)
+        uses: dtolnay/rust-toolchain@master
         with:
+          # Mirrors rust-toolchain.toml (#984).
+          toolchain: 1.99.1
           components: rustfmt, clippy
 
       # Lightweight cache just for the registry index — no target/ needed here.
@@ -66,8 +68,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust (1.99.1)
+        uses: dtolnay/rust-toolchain@master
+        with:
+          # Mirrors rust-toolchain.toml (#984).
+          toolchain: 1.99.1
 
       - name: Cache Cargo artifacts
         uses: actions/cache@v4
@@ -98,8 +103,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust (1.99.1)
+        uses: dtolnay/rust-toolchain@master
+        with:
+          # Mirrors rust-toolchain.toml (#984).
+          toolchain: 1.99.1
 
       - name: Cache Cargo artifacts
         uses: actions/cache@v4
