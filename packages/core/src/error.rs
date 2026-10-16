@@ -17,6 +17,10 @@ pub enum AppError {
     Config(String),
     Network(String),
     Parse(String),
+    /// The request itself is malformed or out of range (HTTP 400).
+    BadRequest(String),
+    /// The requested resource does not exist (HTTP 404).
+    NotFound(String),
     #[allow(dead_code)]
     Unknown(String),
 }
@@ -27,6 +31,8 @@ impl fmt::Display for AppError {
             AppError::Config(msg) => write!(f, "Config error: {}", msg),
             AppError::Network(msg) => write!(f, "Network error: {}", msg),
             AppError::Parse(msg) => write!(f, "Parse error: {}", msg),
+            AppError::BadRequest(msg) => write!(f, "Bad request: {}", msg),
+            AppError::NotFound(msg) => write!(f, "Not found: {}", msg),
             AppError::Unknown(msg) => write!(f, "Unknown error: {}", msg),
         }
     }
@@ -40,6 +46,8 @@ impl IntoResponse for AppError {
             AppError::Config(_) => StatusCode::INTERNAL_SERVER_ERROR,
             AppError::Network(_) => StatusCode::BAD_GATEWAY,
             AppError::Parse(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            AppError::NotFound(_) => StatusCode::NOT_FOUND,
             AppError::Unknown(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
@@ -80,6 +88,22 @@ mod tests {
         assert_eq!(
             status_of(AppError::Parse("invalid json".into())),
             StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+
+    #[test]
+    fn bad_request_error_returns_400() {
+        assert_eq!(
+            status_of(AppError::BadRequest("bad".into())),
+            StatusCode::BAD_REQUEST
+        );
+    }
+
+    #[test]
+    fn not_found_error_returns_404() {
+        assert_eq!(
+            status_of(AppError::NotFound("missing".into())),
+            StatusCode::NOT_FOUND
         );
     }
 

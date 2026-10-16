@@ -33,6 +33,21 @@ impl HorizonClient {
         account_id: &str,
         limit: u32,
     ) -> Result<Vec<crate::insights::types::FeeDataPoint>, AppError> {
+        Ok(self
+            .fetch_account_transaction_records(account_id, limit)
+            .await?
+            .into_iter()
+            .map(|(point, _successful)| point)
+            .collect())
+    }
+
+    /// Like [`Self::fetch_account_transactions`] but also returns Horizon's
+    /// `successful` flag for each transaction.
+    pub async fn fetch_account_transaction_records(
+        &self,
+        account_id: &str,
+        limit: u32,
+    ) -> Result<Vec<(crate::insights::types::FeeDataPoint, bool)>, AppError> {
         let url = format!(
             "{}/accounts/{}/transactions?limit={}&order=desc",
             self.base_url, account_id, limit
@@ -63,22 +78,25 @@ impl HorizonClient {
             .as_array()
             .ok_or_else(|| AppError::Parse("Missing _embedded.records in response".to_string()))?;
 
-        let points: Vec<crate::insights::types::FeeDataPoint> = records
+        let points = records
             .iter()
             .filter_map(|r| {
                 let hash = r["hash"].as_str()?.to_string();
                 let fee_charged = r["fee_charged"].as_str()?.parse::<u64>().ok()?;
                 let ledger = r["ledger"].as_str()?.parse::<u64>().ok()?;
                 let created_at = r["created_at"].as_str()?.to_string();
-                let _successful = r["successful"].as_bool()?;
-                Some(crate::insights::types::FeeDataPoint {
-                    fee_amount: fee_charged,
-                    timestamp: chrono::DateTime::parse_from_rfc3339(&created_at)
-                        .ok()?
-                        .with_timezone(&chrono::Utc),
-                    transaction_hash: hash,
-                    ledger_sequence: ledger,
-                })
+                let successful = r["successful"].as_bool()?;
+                Some((
+                    crate::insights::types::FeeDataPoint {
+                        fee_amount: fee_charged,
+                        timestamp: chrono::DateTime::parse_from_rfc3339(&created_at)
+                            .ok()?
+                            .with_timezone(&chrono::Utc),
+                        transaction_hash: hash,
+                        ledger_sequence: ledger,
+                    },
+                    successful,
+                ))
             })
             .collect();
 

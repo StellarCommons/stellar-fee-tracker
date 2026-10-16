@@ -413,6 +413,33 @@ pub struct AccountTransactionEntry {
     pub successful: bool,
 }
 
+/// A Stellar account ID is a 56-character base32 StrKey starting with `G`.
+fn validate_account_id(account_id: &str) -> Result<(), AppError> {
+    let valid = account_id.len() == 56
+        && account_id.starts_with('G')
+        && account_id
+            .bytes()
+            .all(|b| b.is_ascii_uppercase() || (b'2'..=b'7').contains(&b));
+    if valid {
+        Ok(())
+    } else {
+        Err(AppError::BadRequest(
+            "account_id must be a 56-character Stellar address starting with 'G'".to_string(),
+        ))
+    }
+}
+
+/// A transaction hash is 64 hexadecimal characters.
+fn validate_tx_hash(hash: &str) -> Result<(), AppError> {
+    if hash.len() == 64 && hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+        Ok(())
+    } else {
+        Err(AppError::BadRequest(
+            "transaction hash must be 64 hexadecimal characters".to_string(),
+        ))
+    }
+}
+
 pub async fn account_fee_history(
     State(state): State<FeesState>,
     axum::extract::Path(account_id): axum::extract::Path<String>,
@@ -422,10 +449,15 @@ pub async fn account_fee_history(
         .as_ref()
         .ok_or_else(|| AppError::Config("Horizon client missing from fees state".to_string()))?;
 
-    let records = horizon.fetch_account_transactions(&account_id, 100).await?;
+    validate_account_id(&account_id)?;
+
+    let entries = horizon
+        .fetch_account_transaction_records(&account_id, 100)
+        .await?;
+    let records: Vec<_> = entries.iter().map(|(point, _)| point).collect();
 
     if records.is_empty() {
-        return Err(AppError::Parse(format!(
+        return Err(AppError::NotFound(format!(
             "No transactions found for account: {}",
             account_id
         )));
@@ -436,14 +468,14 @@ pub async fn account_fee_history(
     let max_fee = records.iter().map(|r| r.fee_amount).max().unwrap_or(0);
     let avg_fee = total_fees as f64 / records.len() as f64;
 
-    let transactions: Vec<AccountTransactionEntry> = records
+    let transactions: Vec<AccountTransactionEntry> = entries
         .iter()
-        .map(|r| AccountTransactionEntry {
+        .map(|(r, successful)| AccountTransactionEntry {
             hash: r.transaction_hash.clone(),
             fee_charged: r.fee_amount,
             ledger: r.ledger_sequence,
             created_at: r.timestamp.to_rfc3339(),
-            successful: true,
+            successful: *successful,
         })
         .collect();
 
@@ -470,6 +502,8 @@ pub async fn transaction_fee_lookup(
     State(state): State<FeesState>,
     axum::extract::Path(hash): axum::extract::Path<String>,
 ) -> Result<Json<TransactionFeeResponse>, AppError> {
+    validate_tx_hash(&hash)?;
+
     let point = {
         let store = state.fee_store.read().await;
         store.get_by_hash(&hash)
@@ -482,12 +516,15 @@ pub async fn transaction_fee_lookup(
             ledger_sequence: p.ledger_sequence,
             timestamp: p.timestamp,
         })),
-        None => Err(AppError::Parse(format!("Transaction not found: {}", hash))),
+        None => Err(AppError::NotFound(format!("Transaction not found: {}", hash))),
     }
 }
 
 /// Default comparison window for wait advisory (24 hours in seconds).
 const DEFAULT_WAIT_WINDOW_SECS: u64 = 86_400;
+
+/// Largest accepted comparison window (7 days, matching default retention).
+const MAX_WAIT_WINDOW_SECS: u64 = 7 * 86_400;
 
 /// Recent window for current fee sampling (5 minutes).
 const RECENT_WINDOW_MINS: i64 = 5;
@@ -517,6 +554,12 @@ pub async fn wait_advisory(
     Query(params): Query<WaitAdvisoryQuery>,
 ) -> Result<Json<WaitAdvisory>, AppError> {
     let window_secs = params.window_secs.unwrap_or(DEFAULT_WAIT_WINDOW_SECS);
+    if !(1..=MAX_WAIT_WINDOW_SECS).contains(&window_secs) {
+        return Err(AppError::BadRequest(format!(
+            "window_secs must be between 1 and {}, got {}",
+            MAX_WAIT_WINDOW_SECS, window_secs
+        )));
+    }
     let now = Utc::now();
 
     // Fetch recent data (last 5 minutes) for current fee
