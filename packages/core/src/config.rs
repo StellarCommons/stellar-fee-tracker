@@ -113,18 +113,26 @@ impl Config {
             .poll_interval
             .or_else(|| get("POLL_INTERVAL_SECONDS")?.parse().ok())
             .ok_or("POLL_INTERVAL_SECONDS is required and must be a number")?;
+        // tokio::time::interval panics on a zero duration.
+        if poll_interval_seconds == 0 {
+            return Err("POLL_INTERVAL_SECONDS must be > 0".to_string());
+        }
 
         // -------- API Port --------
         // API_PORT takes precedence; fall back to PORT (Render's injected var),
         // then 8080 for local development.
-        let api_port = get("API_PORT")
-            .or_else(|| get("PORT"))
-            .and_then(|v| v.parse::<u16>().ok())
-            .unwrap_or(8080);
+        let api_port = match get("API_PORT") {
+            Some(raw) => parse_env_value("API_PORT", &raw)?,
+            None => match get("PORT") {
+                Some(raw) => parse_env_value("PORT", &raw)?,
+                None => 8080,
+            },
+        };
 
         // -------- Cache TTL --------
         let cache_ttl_seconds = get("CACHE_TTL_SECONDS")
-            .and_then(|v| v.parse::<u64>().ok())
+            .map(|raw| parse_env_value::<u64>("CACHE_TTL_SECONDS", &raw))
+            .transpose()?
             .unwrap_or(5);
 
         // -------- API key --------
@@ -175,11 +183,13 @@ impl Config {
 
         // -------- Retry config --------
         let retry_attempts = get("RETRY_ATTEMPTS")
-            .and_then(|v| v.parse::<u32>().ok())
+            .map(|raw| parse_env_value::<u32>("RETRY_ATTEMPTS", &raw))
+            .transpose()?
             .unwrap_or(3);
 
         let base_retry_delay_ms = get("BASE_RETRY_DELAY_MS")
-            .and_then(|v| v.parse::<u64>().ok())
+            .map(|raw| parse_env_value::<u64>("BASE_RETRY_DELAY_MS", &raw))
+            .transpose()?
             .unwrap_or(1000);
 
         // -------- Database URL --------
@@ -188,7 +198,8 @@ impl Config {
 
         // -------- Storage retention --------
         let storage_retention_days = get("STORAGE_RETENTION_DAYS")
-            .and_then(|v| v.parse::<u64>().ok())
+            .map(|raw| parse_env_value::<u64>("STORAGE_RETENTION_DAYS", &raw))
+            .transpose()?
             .unwrap_or(7);
 
         // -------- Recommendation config --------
@@ -230,6 +241,14 @@ impl Config {
             stale_data_threshold_seconds,
         })
     }
+}
+
+/// Parse an environment value, failing loudly (rather than silently falling
+/// back to a default) when it is set but not a valid value for `T`.
+fn parse_env_value<T: std::str::FromStr>(name: &str, raw: &str) -> Result<T, String> {
+    raw.trim()
+        .parse::<T>()
+        .map_err(|_| format!("Invalid {}: '{}'", name, raw))
 }
 
 fn parse_spike_severity(value: &str) -> Result<SpikeSeverity, String> {
@@ -393,6 +412,30 @@ mod tests {
             config.webhook_url.as_deref(),
             Some("https://example.com/hook")
         );
+    }
+
+    #[test]
+    fn zero_poll_interval_is_rejected() {
+        let mut cli = make_cli("testnet", None);
+        cli.poll_interval = Some(0);
+        let result = Config::from_sources_with_overrides(&cli, &no_env());
+        assert!(result.unwrap_err().contains("POLL_INTERVAL_SECONDS must be > 0"));
+    }
+
+    #[test]
+    fn unparsable_api_port_returns_error() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("API_PORT", "abc")]);
+        let result = Config::from_sources_with_overrides(&cli, &env);
+        assert!(result.unwrap_err().contains("Invalid API_PORT"));
+    }
+
+    #[test]
+    fn unparsable_retry_attempts_returns_error() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("RETRY_ATTEMPTS", "many")]);
+        let result = Config::from_sources_with_overrides(&cli, &env);
+        assert!(result.unwrap_err().contains("Invalid RETRY_ATTEMPTS"));
     }
 
     #[test]

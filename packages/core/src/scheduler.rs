@@ -204,7 +204,7 @@ pub async fn fetch_with_retry(
 
             Err(err) => {
                 let backoff_ms = {
-                    let exponential = base_delay_ms.saturating_mul(1u64 << attempt);
+                    let exponential = base_delay_ms.saturating_mul(1u64.checked_shl(attempt).unwrap_or(u64::MAX));
                     let jitter = rand::random::<u64>() % base_delay_ms.max(1);
                     exponential.saturating_add(jitter).min(MAX_DELAY_MS)
                 };
@@ -380,7 +380,7 @@ pub async fn fetch_fee_stats_with_retry(
 
             Err(err) => {
                 let backoff_ms = {
-                    let exponential = base_delay_ms.saturating_mul(1u64 << attempt);
+                    let exponential = base_delay_ms.saturating_mul(1u64.checked_shl(attempt).unwrap_or(u64::MAX));
                     let jitter = rand::random::<u64>() % base_delay_ms.max(1);
                     exponential.saturating_add(jitter).min(MAX_DELAY_MS)
                 };

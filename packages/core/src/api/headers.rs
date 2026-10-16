@@ -13,8 +13,7 @@ pub fn compute_etag(body: &[u8]) -> String {
 
     let hash = body
         .iter()
-        .fold(FNV_OFFSET, |acc, &byte| acc ^ (byte as u64))
-        .wrapping_mul(FNV_PRIME);
+        .fold(FNV_OFFSET, |acc, &byte| (acc ^ (byte as u64)).wrapping_mul(FNV_PRIME));
 
     format!("\"{:x}\"", hash)
 }
@@ -57,6 +56,13 @@ mod tests {
         let etag = compute_etag(br#"{"ok":true}"#);
         assert!(etag.starts_with('"'));
         assert!(etag.ends_with('"'));
+    }
+
+    #[test]
+    fn etag_differs_for_reordered_bodies() {
+        // Same byte-XOR, different content: must not collide.
+        assert_ne!(compute_etag(b"ab"), compute_etag(b"ba"));
+        assert_ne!(compute_etag(b"abc"), compute_etag(b"cba"));
     }
 
     #[test]
