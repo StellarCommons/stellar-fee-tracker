@@ -94,15 +94,34 @@ async fn get_congestion_trends(
     Ok(Json(trends))
 }
 
+/// Insights older than this are reported as `stale` by `/insights/health`.
+const INSIGHTS_STALE_AFTER_SECS: i64 = 300;
+
 /// Get insights engine health status
 async fn get_insights_health(
     State(engine): State<InsightsState>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let engine = engine.read().await;
 
+    // Derive status from the age of the last successful insights update:
+    // `starting` before the first update, `stale` when updates have stopped.
+    let last_update = engine.get_last_update();
+    let (status, age_seconds) = match last_update {
+        None => ("starting", None),
+        Some(ts) => {
+            let age = (chrono::Utc::now() - ts).num_seconds().max(0);
+            if age > INSIGHTS_STALE_AFTER_SECS {
+                ("stale", Some(age))
+            } else {
+                ("healthy", Some(age))
+            }
+        }
+    };
+
     let health_info = serde_json::json!({
-        "status": "healthy",
-        "last_update": engine.get_last_update(),
+        "status": status,
+        "age_seconds": age_seconds,
+        "last_update": last_update,
         "config": {
             "polling_interval_seconds": engine.get_config().polling_interval.num_seconds(),
             "time_windows": engine.get_config().time_windows.len(),

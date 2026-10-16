@@ -1,3 +1,21 @@
+## Configuration and Endpoints
+
+Copy `.env.example` to `.env` and adjust. The service listens on port **8080** by default (`API_PORT`, falling back to `PORT`). `POLL_INTERVAL_SECONDS` is required (or pass `--poll-interval`). See `.env.example` for every variable, including `DATABASE_URL`, `ENABLED_ALERT_TYPES`, `STALE_DATA_THRESHOLD_SECONDS` and the `REC_*` recommendation settings.
+
+| Endpoint | Description |
+|---|---|
+| `GET /health` | Liveness probe (no auth, not rate limited) |
+| `GET /metrics` | Prometheus metrics |
+| `GET /fees/current` | Current fee statistics |
+| `GET /fees/history`, `GET /fees/trend` | Historical fees and trend |
+| `GET /fees/account/:account_id` | Fee history for a Stellar account |
+| `GET /fees/transaction/:hash` | Fee for a single transaction |
+| `GET /fees/wait-advisory` | Submit-now-or-wait advice (`window_secs` optional) |
+| `GET/POST /fees/recommend` | Fee recommendation |
+| `GET /fees/recommend/history` | Recent recommendations |
+| `GET /insights`, `/insights/averages`, `/insights/extremes`, `/insights/congestion`, `/insights/health` | Fee insights |
+| `/alerts/config`, `/alerts/history` | Alert webhook configuration and history |
+
 ## Fee Recommendation Engine
 
 This section explains how `FeeRecommendationEngine` turns recent network activity into a concrete fee recommendation, and the assumptions and limitations behind it.

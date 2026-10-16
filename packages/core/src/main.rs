@@ -35,9 +35,7 @@ use crate::error::AppError;
 use crate::insights::{FeeInsightsEngine, HorizonFeeDataProvider, InsightsConfig};
 use crate::logging::init_logging;
 use crate::metrics::AppMetrics;
-use crate::middleware::auth::require_api_key;
 use crate::middleware::rate_limit::{enforce_rate_limit, RateLimitState};
-use crate::recommendation::engine::FeeRecommendationEngine;
 use crate::repository::FeeRepository;
 use crate::scheduler::{run_fee_polling_with_retry, run_fee_stats_polling};
 use crate::services::horizon::HorizonClient;
@@ -202,92 +200,17 @@ async fn main() {
     // insights routes get Arc<RwLock<FeeInsightsEngine>> as their own state
     // Both sub-routers are Router<()> after with_state, so merge works fine
 
-    let fees_router = Router::new()
-        .route("/fees/current", get(api::fees::current_fees))
-        .route("/fees/history", get(api::fees::fee_history))
-        .route("/fees/trend", get(api::fees::fee_trend))
-        .route(
-            "/fees/account/:account_id",
-            get(api::fees::account_fee_history),
-        )
-        .route(
-            "/fees/transaction/:hash",
-            get(api::fees::transaction_fee_lookup),
-        )
-        .route("/fees/wait-advisory", get(api::fees::wait_advisory))
-        .with_state(Arc::new(api::fees::FeesApiState {
-            fee_stats_provider: Some(fee_stats_provider),
-            fee_cache: current_fees_cache,
-            fee_store: fee_store.clone(),
-            insights_engine: Some(insights_engine.clone()),
-            horizon_client: Some(horizon_client.clone()),
-        }));
-
-    // Business routes that require optional API-key auth.
-    let recommendation_engine = FeeRecommendationEngine::new(
-        fee_store.clone(),
-        Some(insights_engine.clone()),
-        config.recommendation.clone(),
-    )
-    .with_repository(repository.clone());
-    let recommendation_state = Arc::new(api::recommendation::RecommendationApiState {
-        engine: recommendation_engine,
-        metrics: Some(app_metrics.clone()),
-        repository: Some(repository.clone()),
+    let api_routes = api::router::build_api_router(api::router::ApiRouterDeps {
+        fee_stats_provider,
+        fee_cache: current_fees_cache,
+        fee_store: fee_store.clone(),
+        insights_engine: insights_engine.clone(),
+        horizon_client: Some(horizon_client.clone()),
+        repository: repository.clone(),
+        metrics: app_metrics.clone(),
+        recommendation_config: config.recommendation.clone(),
+        api_key: config.api_key.clone(),
     });
-    let recommendation_router = Router::new()
-        .route(
-            "/fees/recommend",
-            axum::routing::get(api::recommendation::get_recommend)
-                .post(api::recommendation::recommend),
-        )
-        .route(
-            "/fees/recommend/history",
-            axum::routing::get(api::recommendation::recommend_history),
-        )
-        .with_state(recommendation_state);
-
-    let api_routes = Router::new()
-        .merge(fees_router)
-        .merge(recommendation_router)
-        .merge(api::insights::create_insights_router(
-            insights_engine.clone(),
-        ))
-        .merge(
-            Router::new()
-                .route(
-                    "/alerts/config",
-                    axum::routing::post(api::alerts::create_alert),
-                )
-                .route(
-                    "/alerts/config",
-                    axum::routing::get(api::alerts::list_alerts),
-                )
-                .route(
-                    "/alerts/config/:id",
-                    axum::routing::patch(api::alerts::update_alert),
-                )
-                .route(
-                    "/alerts/config/:id",
-                    axum::routing::delete(api::alerts::delete_alert),
-                )
-                .route(
-                    "/alerts/history",
-                    axum::routing::get(api::alerts::get_alert_history),
-                )
-                .with_state(repository.clone()),
-        );
-
-    let api_routes = match config.api_key.clone() {
-        Some(expected_key) => {
-            tracing::info!("API key authentication is enabled for protected routes");
-            api_routes.layer(axum::middleware::from_fn_with_state(
-                Some(expected_key),
-                require_api_key,
-            ))
-        }
-        None => api_routes,
-    };
 
     // /metrics: rate limited but NOT behind API-key auth (Prometheus scrapers
     // should not need to know the API key).

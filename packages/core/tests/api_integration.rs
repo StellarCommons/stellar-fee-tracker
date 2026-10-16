@@ -1,6 +1,7 @@
 //! Integration tests for all API endpoints.
 //!
-//! Each test boots the full Axum router (same assembly as `main.rs`) using
+//! Each test boots the full Axum router (business routes built by
+//! `api::router::build_api_router`, the same builder `main.rs` uses) using
 //! `tower::ServiceExt::oneshot` — no live server or live Horizon node needed.
 //!
 //! `build_test_app()` wires together:
@@ -38,6 +39,7 @@ use stellar_fee_tracker::{
     insights::types::FeeDataPoint,
     insights::{FeeInsightsEngine, InsightsConfig},
     metrics::AppMetrics,
+    recommendation::types::RecommendationConfig,
     repository::FeeRepository,
     services::horizon::HorizonClient,
     store::{FeeHistoryStore, DEFAULT_CAPACITY},
@@ -154,20 +156,20 @@ async fn build_test_app() -> (Router, MockServer) {
     let app_metrics = Arc::new(AppMetrics::new().unwrap());
     let metrics_for_handler = app_metrics.clone();
 
-    // ---- Fees router ----
-    let fees_router = Router::new()
-        .route("/fees/current", get(api::fees::current_fees))
-        .route("/fees/history", get(api::fees::fee_history))
-        .route("/fees/trend", get(api::fees::fee_trend))
-        .with_state(Arc::new(api::fees::FeesApiState {
-            fee_stats_provider: Some(fee_stats_provider),
-            fee_cache,
-            fee_store: fee_store.clone(),
-            insights_engine: Some(insights_engine.clone()),
-            horizon_client: None,
-        }));
+    // ---- Business routes (shared with main.rs) ----
+    let api_routes = api::router::build_api_router(api::router::ApiRouterDeps {
+        fee_stats_provider,
+        fee_cache,
+        fee_store: fee_store.clone(),
+        insights_engine: insights_engine.clone(),
+        horizon_client: None,
+        repository,
+        metrics: app_metrics.clone(),
+        recommendation_config: RecommendationConfig::default(),
+        api_key: None,
+    });
 
-    // ---- Full router (mirrors main.rs assembly) ----
+    // ---- Full router ----
     let app = Router::new()
         .route("/health", get(api::health::health))
         .route(
@@ -192,34 +194,7 @@ async fn build_test_app() -> (Router, MockServer) {
                 }
             }),
         )
-        .merge(fees_router)
-        .merge(api::insights::create_insights_router(
-            insights_engine.clone(),
-        ))
-        .merge(
-            Router::new()
-                .route(
-                    "/alerts/config",
-                    axum::routing::post(api::alerts::create_alert),
-                )
-                .route(
-                    "/alerts/config",
-                    axum::routing::get(api::alerts::list_alerts),
-                )
-                .route(
-                    "/alerts/config/:id",
-                    axum::routing::patch(api::alerts::update_alert),
-                )
-                .route(
-                    "/alerts/config/:id",
-                    axum::routing::delete(api::alerts::delete_alert),
-                )
-                .route(
-                    "/alerts/history",
-                    axum::routing::get(api::alerts::get_alert_history),
-                )
-                .with_state(repository),
-        );
+        .merge(api_routes);
 
     (app, mock_server)
 }
@@ -823,4 +798,106 @@ async fn alerts_history_returns_200_empty() {
     let json = json_body(resp.into_body()).await;
     assert_eq!(json["total"], 0);
     assert!(json["items"].as_array().unwrap().is_empty());
+}
+
+// ---- Additional route coverage (success + 4xx shapes) -----------------------
+
+async fn get_json(path: &str) -> (StatusCode, Value) {
+    let (app, _mock) = build_test_app().await;
+    let resp = app
+        .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = resp.status();
+    (status, json_body(resp.into_body()).await)
+}
+
+#[tokio::test]
+async fn wait_advisory_returns_200() {
+    let (status, _json) = get_json("/fees/wait-advisory").await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn transaction_lookup_returns_known_hash() {
+    let (status, json) = get_json("/fees/transaction/txhash000001").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["transaction_hash"], "txhash000001");
+}
+
+#[tokio::test]
+async fn transaction_lookup_unknown_hash_is_client_error_with_error_body() {
+    let (status, json) = get_json("/fees/transaction/doesnotexist").await;
+    assert!(status.is_client_error(), "got {}", status);
+    assert!(json["error"].is_string());
+}
+
+#[tokio::test]
+async fn account_history_without_horizon_client_returns_error_body() {
+    let (status, json) =
+        get_json("/fees/account/GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").await;
+    assert!(!status.is_success(), "got {}", status);
+    assert!(json["error"].is_string());
+}
+
+#[tokio::test]
+async fn recommend_history_returns_entries_array() {
+    let (status, json) = get_json("/fees/recommend/history").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(json["entries"].is_array());
+}
+
+#[tokio::test]
+async fn recommend_post_valid_request_returns_200() {
+    let (app, _mock) = build_test_app().await;
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/fees/recommend")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"target_ledgers":2,"urgency":"medium"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = json_body(resp.into_body()).await;
+    assert!(json["fee_in_stroops"].is_u64());
+}
+
+#[tokio::test]
+async fn recommend_post_zero_target_ledgers_is_client_error() {
+    let (app, _mock) = build_test_app().await;
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/fees/recommend")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"target_ledgers":0}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(resp.status().is_client_error(), "got {}", resp.status());
+    let json = json_body(resp.into_body()).await;
+    assert!(json["error"].is_string());
+}
+
+#[tokio::test]
+async fn alerts_config_post_with_invalid_body_is_client_error() {
+    let (app, _mock) = build_test_app().await;
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/alerts/config")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(resp.status().is_client_error(), "got {}", resp.status());
 }
