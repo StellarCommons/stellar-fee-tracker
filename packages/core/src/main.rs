@@ -40,7 +40,7 @@ use crate::middleware::rate_limit::{enforce_rate_limit, RateLimitState};
 use crate::recommendation::engine::FeeRecommendationEngine;
 use crate::recommendation::types::RecommendationConfig;
 use crate::repository::FeeRepository;
-use crate::scheduler::run_fee_polling_with_retry;
+use crate::scheduler::{run_fee_polling_with_retry, run_fee_stats_polling};
 use crate::services::horizon::HorizonClient;
 use crate::store::{FeeHistoryStore, DEFAULT_CAPACITY};
 
@@ -365,10 +365,19 @@ async fn main() {
             config.poll_interval_seconds,
             config.retry_attempts,
             config.base_retry_delay_ms,
+            Some(repository.clone()),
+            config.storage_retention_days,
+            Some(app_metrics.clone()),
+            Some(alert_manager),
+        ),
+        run_fee_stats_polling(
+            horizon_client.clone(),
             Some(repository),
+            config.poll_interval_seconds,
+            config.retry_attempts,
+            config.base_retry_delay_ms,
             config.storage_retention_days,
             Some(app_metrics),
-            Some(alert_manager),
         ),
     );
 

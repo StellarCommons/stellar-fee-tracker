@@ -1,5 +1,5 @@
-// Library root \u2014 exposes internal modules for integration tests in .
-// Production entry point remains .
+// Library root — exposes internal modules for integration tests in tests/.
+// Production entry point remains src/main.rs.
 
 pub mod alerts;
 pub mod analytics;
