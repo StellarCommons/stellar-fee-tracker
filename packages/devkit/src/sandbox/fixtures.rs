@@ -21,6 +21,13 @@ pub fn ramp(
     if ledgers == 0 {
         return Vec::new();
     }
+    if ledgers == 1 {
+        return vec![FeeRecord {
+            ledger: start,
+            fee_charged: from_fee,
+            max_fee,
+        }];
+    }
     let steps = (ledgers - 1) as i64;
     (0..ledgers as u32)
         .map(|offset| {
