@@ -1,4 +1,6 @@
 [workspace]
 members = ["packages/core", "packages/devkit"]
+# These directories are scaffolding or separate applications, not Cargo crates.
+exclude = ["packages/pipeline", "packages/testing", "packages/utils", "packages/ui"]
 resolver = "2"
 # SQLite WAL Configured for Windows CI compatibility

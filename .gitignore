@@ -43,6 +43,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+.claude/
 
 # ── Test / coverage artefacts ─────────────────────────────────────────────────
 coverage/
