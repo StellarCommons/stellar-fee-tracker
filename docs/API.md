@@ -12,6 +12,15 @@ Responses include the following caching headers where applicable:
 
 Clients should send `If-None-Match: <etag>` on subsequent requests; if the data has not changed the server returns `304 Not Modified` with no body.
 
+Responses include the following caching headers where applicable:
+
+- `Cache-Control: public, max-age=<n>, s-maxage=<m>` — indicates cacheability
+- `ETag` — opaque fingerprint of the response body
+- `Last-Modified` — RFC 7231 timestamp of the last data update
+
+Clients should send `If-None-Match: <etag>` on subsequent requests; if the data has not changed the server returns `304 Not Modified` with no body.
+
+
 ---
 
 ## `GET /health`
