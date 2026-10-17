@@ -14,7 +14,7 @@ stellar-fee-tracker/
 
 | Tool | Version | Install |
 |------|---------|---------|
-| Rust toolchain | stable ≥ 1.75 | https://rustup.rs |
+| Rust toolchain | 1.99.1 (pinned) | https://rustup.rs |
 | Node.js | ≥ 20 | https://nodejs.org |
 | Git | any recent | — |
 | Docker Desktop | ≥ 4.x *(Option A only)* | https://www.docker.com/products/docker-desktop |

@@ -22,7 +22,7 @@ Horizon API  →  Scheduler  →  SQLite store
 
 | Dependency | Minimum version | Notes |
 |---|---|---|
-| Rust toolchain | 1.75 | Install via [rustup](https://rustup.rs/) |
+| Rust toolchain | 1.99.1 (pinned) | Install via [rustup](https://rustup.rs/) |
 | SQLite | 3.x | Usually pre-installed on Linux/macOS |
 | (Optional) Docker | 20.x | For container deployment |
 

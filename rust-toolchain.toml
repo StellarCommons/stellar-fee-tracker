@@ -3,8 +3,7 @@
 # results without anything in the repository changing.
 #
 # Keep this in step with the toolchain passed to dtolnay/rust-toolchain in
-# .github/workflows/*.yml. The "1.75" figures in README.md, CONTRIBUTING.md and
-# Dockerfile are stale and are tracked separately (#996).
+# .github/workflows/*.yml and the Rust image in Dockerfile.
 [toolchain]
 channel = "1.99.1"
 components = ["rustfmt", "clippy"]
