@@ -84,8 +84,7 @@ impl Bulkhead {
     }
 
     pub fn execute<T, F: FnOnce() -> T>(&self, operation: F) -> Result<T, BulkheadError> {
-        let permit = self.try_acquire()?;
-        drop(permit);
+        let _permit = self.try_acquire()?;
         Ok(operation())
     }
 }
@@ -172,7 +171,13 @@ mod tests {
     #[test]
     fn execute_runs_the_operation() {
         let bulkhead = Bulkhead::new(1).expect("bulkhead");
-        assert_eq!(bulkhead.execute(|| 42), Ok(42));
+        assert_eq!(
+            bulkhead.execute(|| {
+                assert_eq!(bulkhead.in_flight(), 1);
+                42
+            }),
+            Ok(42)
+        );
         assert_eq!(bulkhead.in_flight(), 0);
     }
 
