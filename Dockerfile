@@ -1,5 +1,5 @@
 # Multi-stage build
-FROM rust:1.75-slim AS builder
+FROM rust:1.99.1-slim AS builder
 WORKDIR /app
 COPY . .
 RUN cargo build --release
