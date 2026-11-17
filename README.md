@@ -68,6 +68,14 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 | `API_KEY` | `string` | _(unset)_ | API key for protected routes; leave empty to disable |
 | `WEBHOOK_URL` | `string` | _(unset)_ | Webhook URL for fee spike alerts; leave empty to disable |
 | `ALERT_THRESHOLD` | `string` | `Major` | Alert severity: `Minor`, `Moderate`, `Major`, `Critical` |
+| `PORT` | `u16` | _(unset)_ | Fallback for `API_PORT`, used only when `API_PORT` is unset (effective default `8080`) |
+| `ENABLED_ALERT_TYPES` | `string` | All types | Comma-separated subset of `spike`, `recovery`, `good_window`, `stale_data` |
+| `STALE_DATA_THRESHOLD_SECONDS` | `u64` | `300` | Seconds without fresh fee data before a stale-data alert fires |
+| `REC_DEFAULT_CONFIDENCE` | `f64` | `0.95` | Default confidence level for fee recommendations |
+| `REC_DEFAULT_LEDGERS` | `u32` | `2` | Default target number of ledgers for inclusion |
+| `REC_HISTORY_WINDOW_SECS` | `u64` | `10800` | History window (seconds) used for recommendations |
+| `REC_CACHE_TTL_SECS` | `u64` | `10` | Recommendation cache TTL (seconds) |
+| `REC_MIN_SAMPLE_COUNT` | `usize` | `10` | Minimum samples required before producing a recommendation |
 | `RUST_LOG` | `string` | `info` | Log level: `error`, `warn`, `info`, `debug`, `trace` |
 
 ## API Overview
