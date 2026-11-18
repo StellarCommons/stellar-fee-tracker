@@ -20,6 +20,11 @@ pub struct AppMetrics {
     pub polls_total: Counter,
     /// Total number of failed Horizon polling attempts.
     pub poll_errors_total: Counter,
+    /// Total `/fee_stats` polling attempts (separate from `polls_total`, which
+    /// counts the transaction poller, so the two loops are distinguishable).
+    pub fee_stats_polls_total: Counter,
+    /// Total failed `/fee_stats` polling attempts.
+    pub fee_stats_poll_errors_total: Counter,
     /// Current number of fee data points held in the in-memory store.
     pub fee_points_stored: Gauge,
     /// Latest short-term rolling average fee (in stroops).
@@ -50,6 +55,16 @@ impl AppMetrics {
             "Failed Horizon polling attempts",
         ))?;
 
+        let fee_stats_polls_total = Counter::with_opts(Opts::new(
+            "stellar_fee_tracker_fee_stats_polls_total",
+            "Total Horizon /fee_stats polling attempts",
+        ))?;
+
+        let fee_stats_poll_errors_total = Counter::with_opts(Opts::new(
+            "stellar_fee_tracker_fee_stats_poll_errors_total",
+            "Failed Horizon /fee_stats polling attempts",
+        ))?;
+
         let fee_points_stored = Gauge::with_opts(Opts::new(
             "stellar_fee_tracker_fee_points_stored",
             "Current size of the FeeHistoryStore",
@@ -77,6 +92,8 @@ impl AppMetrics {
 
         registry.register(Box::new(polls_total.clone()))?;
         registry.register(Box::new(poll_errors_total.clone()))?;
+        registry.register(Box::new(fee_stats_polls_total.clone()))?;
+        registry.register(Box::new(fee_stats_poll_errors_total.clone()))?;
         registry.register(Box::new(fee_points_stored.clone()))?;
         registry.register(Box::new(current_avg_fee.clone()))?;
         registry.register(Box::new(spikes_detected_total.clone()))?;
@@ -86,6 +103,8 @@ impl AppMetrics {
         Ok(Self {
             polls_total,
             poll_errors_total,
+            fee_stats_polls_total,
+            fee_stats_poll_errors_total,
             fee_points_stored,
             current_avg_fee,
             spikes_detected_total,

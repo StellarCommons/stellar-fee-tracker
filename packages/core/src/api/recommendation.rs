@@ -78,7 +78,7 @@ pub async fn get_recommend(
     let recent = state.engine.get_last_n_fees(100).await;
 
     if recent.is_empty() {
-        return Err(AppError::Network(
+        return Err(AppError::ServiceUnavailable(
             "No fee data available yet. Wait for the first poll cycle.".to_string(),
         ));
     }
@@ -93,9 +93,10 @@ pub async fn get_recommend(
     // Guard against a zero minimum so the ratio never divides by zero.
     let ratio = avg_fee as f64 / min_fee.max(1) as f64;
 
-    let percentile_value = |sorted: &[u64], pct: usize| -> u64 {
-        let idx = (pct * sorted.len()).div_ceil(100).min(sorted.len() - 1);
-        sorted[idx]
+    // Same nearest-rank percentile the engine and /fees/* use, so GET and POST
+    // /fees/recommend agree for identical data.
+    let percentile_value = |sorted: &[u64], pct: u8| -> u64 {
+        crate::analytics::percentile::percentile_nearest(sorted, pct)
     };
 
     let (congestion, basis, recommended_fee) = if ratio < 1.5 {
@@ -117,6 +118,10 @@ pub async fn get_recommend(
             percentile_value(&sorted, 70),
         )
     };
+
+    if let Some(metrics) = &state.metrics {
+        metrics.recommendations_total.inc();
+    }
 
     Ok(Json(FeeRecommendResponse {
         recommended_fee,

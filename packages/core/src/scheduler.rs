@@ -315,7 +315,7 @@ async fn poll_fee_stats_once(
     metrics: Option<&AppMetrics>,
 ) {
     if let Some(m) = metrics {
-        m.polls_total.inc();
+        m.fee_stats_polls_total.inc();
     }
 
     let snapshot =
@@ -323,7 +323,7 @@ async fn poll_fee_stats_once(
             Some(s) => s,
             None => {
                 if let Some(m) = metrics {
-                    m.poll_errors_total.inc();
+                    m.fee_stats_poll_errors_total.inc();
                 }
                 tracing::warn!(
                     "All {} retry attempts exhausted for fee_stats — skipping tick",

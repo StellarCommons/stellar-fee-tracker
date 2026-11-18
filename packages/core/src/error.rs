@@ -21,6 +21,8 @@ pub enum AppError {
     BadRequest(String),
     /// The requested resource does not exist (HTTP 404).
     NotFound(String),
+    /// The service has no data to answer with yet (HTTP 503).
+    ServiceUnavailable(String),
     #[allow(dead_code)]
     Unknown(String),
 }
@@ -33,6 +35,7 @@ impl fmt::Display for AppError {
             AppError::Parse(msg) => write!(f, "Parse error: {}", msg),
             AppError::BadRequest(msg) => write!(f, "Bad request: {}", msg),
             AppError::NotFound(msg) => write!(f, "Not found: {}", msg),
+            AppError::ServiceUnavailable(msg) => write!(f, "Service unavailable: {}", msg),
             AppError::Unknown(msg) => write!(f, "Unknown error: {}", msg),
         }
     }
@@ -48,6 +51,7 @@ impl IntoResponse for AppError {
             AppError::Parse(_) => StatusCode::UNPROCESSABLE_ENTITY,
             AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
             AppError::NotFound(_) => StatusCode::NOT_FOUND,
+            AppError::ServiceUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             AppError::Unknown(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
@@ -65,6 +69,14 @@ mod tests {
     fn status_of(err: AppError) -> StatusCode {
         let response = err.into_response();
         response.status()
+    }
+
+    #[test]
+    fn service_unavailable_returns_503() {
+        assert_eq!(
+            status_of(AppError::ServiceUnavailable("no data".into())),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
     }
 
     #[test]
