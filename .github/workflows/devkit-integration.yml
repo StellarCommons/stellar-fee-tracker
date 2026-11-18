@@ -7,10 +7,10 @@ permissions:
 on:
   push:
     branches: [main]
-    paths: ['packages/devkit/**', '.github/workflows/devkit-integration.yml']
+    paths: ['packages/devkit/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.github/workflows/devkit-integration.yml']
   pull_request:
     branches: [main]
-    paths: ['packages/devkit/**', '.github/workflows/devkit-integration.yml']
+    paths: ['packages/devkit/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.github/workflows/devkit-integration.yml']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

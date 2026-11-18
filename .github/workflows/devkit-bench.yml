@@ -7,7 +7,14 @@ permissions:
 on:
   pull_request:
     branches: [main]
-    paths: ['packages/devkit/**']
+    paths:
+      - 'packages/devkit/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/devkit-bench.yml'
+  # Allow running the benchmarks on demand.
+  workflow_dispatch:
 
 jobs:
   benchmark:
@@ -28,10 +35,12 @@ jobs:
       - name: Compile benchmarks
         run: cargo bench --no-run
       - name: Run benchmarks (quick)
+        # `--quick` makes criterion take a single short measurement per
+        # benchmark instead of a full sampling run.
         # `shell: bash` implies `-o pipefail`, so a failing `cargo bench` fails
         # this step instead of being swallowed by the pipe into `tee`.
         shell: bash
-        run: cargo bench -- --output-format bencher 2>&1 | tee benchmark-output.txt
+        run: cargo bench -- --quick --output-format bencher 2>&1 | tee benchmark-output.txt
       - name: Post results to step summary
         if: always()
         run: |
@@ -39,3 +48,10 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           cat benchmark-output.txt >> $GITHUB_STEP_SUMMARY || echo "No output captured." >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+      - name: Upload benchmark output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devkit-benchmark-output
+          path: packages/devkit/benchmark-output.txt
+          if-no-files-found: warn

@@ -11,6 +11,7 @@ on:
       - 'packages/devkit/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'rust-toolchain.toml'
       - '.github/workflows/devkit-ci.yml'
   pull_request:
     branches: [ main ]
@@ -18,6 +19,7 @@ on:
       - 'packages/devkit/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'rust-toolchain.toml'
       - '.github/workflows/devkit-ci.yml'
 
 jobs:
@@ -25,6 +27,7 @@ jobs:
     name: Build & Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
@@ -34,6 +37,7 @@ jobs:
         with:
           # Mirrors rust-toolchain.toml (#984).
           toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@v2
       - name: Run Cargo Check
         run: cargo check -p stellar-devkit
       - name: Run Cargo Test
