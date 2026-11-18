@@ -50,7 +50,7 @@ export function DashboardPreview() {
                 >
                   {label}
                 </div>
-                <div className="text-xs text-[#3d5a73]">{desc}</div>
+                <div className="text-xs text-[#6b8aa6]">{desc}</div>
               </div>
             </div>
           ))}

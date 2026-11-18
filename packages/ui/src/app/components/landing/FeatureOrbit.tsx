@@ -81,7 +81,7 @@ export function FeatureOrbit() {
                   >
                     {label}
                   </div>
-                  <div className="text-[9px] text-[#3d5a73] leading-tight hidden group-hover:block">
+                  <div className="text-[9px] text-[#6b8aa6] leading-tight hidden group-hover:block">
                     {desc}
                   </div>
                 </div>

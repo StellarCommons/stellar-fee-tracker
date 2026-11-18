@@ -1,11 +1,12 @@
 # Contributing to Stellar Fee Tracker
 
-This repo is a monorepo with two packages:
+This repo is a monorepo with three packages:
 
 ```
 stellar-fee-tracker/
-├── packages/core/   ← Rust backend (Axum HTTP server + fee polling)
-└── packages/ui/     ← Next.js frontend (dashboard)
+├── packages/core/    ← Rust backend (Axum HTTP server + fee polling)
+├── packages/devkit/  ← Rust library (stellar-devkit: analytics, simulation, storage)
+└── packages/ui/      ← Next.js frontend (dashboard)
 ```
 
 ---
@@ -27,7 +28,7 @@ One command starts both services with the correct environment:
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/your-org/stellar-fee-tracker
+git clone https://github.com/StellarCommons/stellar-fee-tracker
 cd stellar-fee-tracker
 
 # 2. Start everything
@@ -85,6 +86,11 @@ server-side to `http://localhost:8080/fees/current` via the `BACKEND_URL`
 env var. The browser never makes a cross-origin request, so no CORS
 configuration is required during local development.
 
+`packages/ui/next.config.ts` also reads `BACKEND_HOST` (a bare hostname with no
+protocol, set by Render). **`BACKEND_HOST` takes precedence over
+`BACKEND_URL`**: when it is set, the proxy targets `https://<BACKEND_HOST>` and
+`BACKEND_URL` is ignored. Leave `BACKEND_HOST` unset locally and in Docker.
+
 ```
 Browser → /api/fees/current
            ↓ (Next.js rewrite — server-side)
@@ -119,7 +125,7 @@ curl http://localhost:3000/api/fees/current
 | Problem | Cause | Fix |
 |---------|-------|-----|
 | Dashboard shows no data | Backend not running | Start backend first (`cargo run`) |
-| "Failed to load fee data" toast | Wrong `BACKEND_URL` in `.env.local` | Set `BACKEND_URL=http://localhost:8080` |
+| "Failed to load fee data" toast | Wrong `BACKEND_URL` in `.env.local`, or `BACKEND_HOST` is set and overriding it | Set `BACKEND_URL=http://localhost:8080` and unset `BACKEND_HOST` |
 | CORS errors in browser console | Using direct URL without CORS configured | Use proxy (`NEXT_PUBLIC_API_URL=/api`) |
 | `cargo run` exits immediately | Missing `.env` or required env var | `cp packages/core/.env.example packages/core/.env` |
 | Port 8080 already in use | Another process | `lsof -ti:8080 \| xargs kill` |
@@ -131,15 +137,31 @@ curl http://localhost:3000/api/fees/current
 ## Running tests
 
 ```bash
-# Rust unit + property tests
-cargo test
+# Formatting
+cargo fmt --all -- --check
 
 # Lint
-cargo clippy -- -D warnings
+cargo clippy --all-targets --all-features -- -D warnings
 
-# Next.js lint
-cd packages/ui && npm run lint
+# Rust unit, property and integration tests (whole workspace)
+cargo test --all
+
+# UI: lint, typecheck, tests and build
+cd packages/ui
+npm run lint
+npx tsc --noEmit
+npm test
+npm run build
 ```
+
+These mirror `.github/workflows/ci.yml`; run them before opening a PR.
+
+---
+
+## Code of conduct
+
+Everyone taking part in this project is expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 

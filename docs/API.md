@@ -12,14 +12,30 @@ Responses include the following caching headers where applicable:
 
 Clients should send `If-None-Match: <etag>` on subsequent requests; if the data has not changed the server returns `304 Not Modified` with no body.
 
-Responses include the following caching headers where applicable:
+## Authentication
 
-- `Cache-Control: public, max-age=<n>, s-maxage=<m>` — indicates cacheability
-- `ETag` — opaque fingerprint of the response body
-- `Last-Modified` — RFC 7231 timestamp of the last data update
+When the server is started with `API_KEY` set, every route except `/health` and `/metrics` requires the key in an `x-api-key` request header:
 
-Clients should send `If-None-Match: <etag>` on subsequent requests; if the data has not changed the server returns `304 Not Modified` with no body.
+```bash
+curl -H "x-api-key: $API_KEY" http://localhost:8080/fees/current
+```
 
+| Situation | Status | Body |
+|---|---|---|
+| Header missing, or key does not match | `401 Unauthorized` | `{"error": "Unauthorized: missing or invalid API key"}` |
+| Header present but empty or not valid text | `403 Forbidden` | `{"error": "Forbidden: invalid API key format"}` |
+
+When `API_KEY` is unset or empty, authentication is disabled.
+
+## Rate limiting
+
+Requests are limited per client IP with a token bucket sized by `RATE_LIMIT_PER_MINUTE` (default `60`). Every route except `/health` is limited, including `/metrics`. Rate-limited responses carry:
+
+- `X-RateLimit-Limit` — bucket capacity
+- `X-RateLimit-Remaining` — whole requests left before the limit is hit
+- `X-RateLimit-Reset` — seconds until the next request token is available
+
+When the bucket is empty the server returns `429 Too Many Requests` with `{"error": "Rate limit exceeded. Try again in <n> seconds."}` and a `Retry-After: <n>` header (seconds).
 
 ---
 
@@ -814,6 +830,8 @@ Common HTTP status codes:
 | Status | Meaning |
 |---|---|
 | `400` | Bad request — malformed query parameters or request body |
+| `401` | Unauthorized — `API_KEY` is set and the `x-api-key` header is missing or wrong |
+| `403` | Forbidden — the `x-api-key` header is empty or malformed |
 | `404` | Not found — resource does not exist |
 | `422` | Unprocessable entity — valid JSON but semantically invalid |
 | `429` | Too many requests — rate limit exceeded |

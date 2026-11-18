@@ -151,7 +151,7 @@ function Hero() {
       <div
         className={`hidden lg:block absolute right-6 top-24 transition-all duration-700 delay-500 ${mounted ? "opacity-100" : "opacity-0"}`}
       >
-        <div className="text-[9px] text-[#3d5a73] tracking-widest mb-2 text-right">
+        <div className="text-[9px] text-[#6b8aa6] tracking-widest mb-2 text-right">
           LAST 15 LEDGERS
         </div>
         <Sparkline data={sparkData} />

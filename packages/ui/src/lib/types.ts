@@ -123,12 +123,3 @@ export interface RecommendRequest {
   /** Desired confidence level as a fraction (e.g. 0.90 for 90%) */
   confidence?: number
 }
-
-/** Alias exported for consumers that prefer the Response name */
-export type RecommendationResponse = RecommendResponse
-
-// ---- Issue #75 aliases ----
-/** Alias for CurrentFeeResponse as specified in the shared lib layer issue */
-export type FeeStats = CurrentFeeResponse
-/** Alias for FeeHistoryResponse as specified in the shared lib layer issue */
-export type FeeHistory = FeeHistoryResponse

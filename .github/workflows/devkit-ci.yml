@@ -11,6 +11,7 @@ on:
       - 'packages/devkit/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'rust-toolchain.toml'
       - '.github/workflows/devkit-ci.yml'
   pull_request:
     branches: [ main ]
@@ -18,6 +19,7 @@ on:
       - 'packages/devkit/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'rust-toolchain.toml'
       - '.github/workflows/devkit-ci.yml'
 
 concurrency:
@@ -30,6 +32,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
@@ -46,6 +49,7 @@ jobs:
       - name: Run Clippy
         if: matrix.os == 'ubuntu-latest'
         run: cargo clippy -p stellar-devkit --all-targets -- -D warnings
+      - uses: Swatinem/rust-cache@v2
       - name: Run Cargo Check
         run: cargo check -p stellar-devkit
       - name: Run Cargo Test

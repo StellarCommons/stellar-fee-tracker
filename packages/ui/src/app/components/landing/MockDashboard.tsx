@@ -26,7 +26,7 @@ export default function MockDashboard() {
         <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
         <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
         <div className="w-3 h-3 rounded-full bg-[#28c840]" />
-        <span className="ml-3 text-[10px] text-[#3d5a73] tracking-widest">STELLARFEES — DASHBOARD</span>
+        <span className="ml-3 text-[10px] text-[#6b8aa6] tracking-widest">STELLARFEES — DASHBOARD</span>
         <div className="ml-auto flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse" />
           <span className="text-[9px] text-[#00ff9d]">LIVE</span>
@@ -37,7 +37,7 @@ export default function MockDashboard() {
       <div className="grid grid-cols-4 gap-px bg-[#1e2a36] border-b border-[#1e2a36]">
         {STAT_CARDS.map((s, i) => (
           <div key={i} className="bg-[#111820] px-3 py-3">
-            <div className="text-[8px] text-[#3d5a73] tracking-widest mb-1">{s.label}</div>
+            <div className="text-[8px] text-[#6b8aa6] tracking-widest mb-1">{s.label}</div>
             <div className="text-sm font-bold" style={{ color: s.color, fontFamily: "'Space Mono', monospace" }}>
               {s.val}
             </div>
@@ -48,7 +48,7 @@ export default function MockDashboard() {
       {/* Chart */}
       <div className="bg-[#0d1117] px-4 pt-3 pb-1">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[8px] text-[#3d5a73] tracking-widest">FEE HISTORY · 1H</span>
+          <span className="text-[8px] text-[#6b8aa6] tracking-widest">FEE HISTORY · 1H</span>
           <div className="flex gap-1">
             {['1H', '6H', '24H'].map((w, i) => (
               <span key={w} className="text-[8px] px-1.5 py-0.5 rounded" style={{
@@ -79,20 +79,20 @@ export default function MockDashboard() {
       {/* Bottom panels */}
       <div className="grid grid-cols-2 gap-px bg-[#1e2a36]">
         <div className="bg-[#111820] px-3 py-3">
-          <div className="text-[8px] text-[#3d5a73] tracking-widest mb-2">TREND ANALYSIS</div>
+          <div className="text-[8px] text-[#6b8aa6] tracking-widest mb-2">TREND ANALYSIS</div>
           <div className="text-sm font-bold text-[#00ff9d] mb-2" style={{ fontFamily: "'Space Mono', monospace" }}>— Normal</div>
           {['1H', '6H', '24H'].map(l => (
             <div key={l} className="flex justify-between py-1 border-b border-[#1e2a3620]">
-              <span className="text-[8px] text-[#3d5a73]">{l} change</span>
+              <span className="text-[8px] text-[#6b8aa6]">{l} change</span>
               <span className="text-[8px] text-[#7a9ab5]">→ 0.0%</span>
             </div>
           ))}
         </div>
         <div className="bg-[#111820] px-3 py-3">
-          <div className="text-[8px] text-[#3d5a73] tracking-widest mb-2">ROLLING AVERAGES</div>
+          <div className="text-[8px] text-[#6b8aa6] tracking-widest mb-2">ROLLING AVERAGES</div>
           {ROLLING.map(({ l, v, c }) => (
             <div key={l} className="flex justify-between items-center py-1.5 border-b border-[#1e2a3620]">
-              <span className="text-[8px] text-[#3d5a73]">{l}</span>
+              <span className="text-[8px] text-[#6b8aa6]">{l}</span>
               <span className="text-[9px] font-bold" style={{ color: c, fontFamily: "'Space Mono', monospace" }}>{v}</span>
             </div>
           ))}

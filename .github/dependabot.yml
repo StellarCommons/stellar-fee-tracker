@@ -7,6 +7,24 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      # wiremock is a dev-dependency of both core and devkit; bump them together.
+      wiremock:
+        patterns:
+          - "wiremock"
+      rust-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Pre-1.0 crates ship breaking changes as minor bumps, so both levels are
+      # ignored until the migration is done deliberately.
+      - dependency-name: "axum"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "tower-http"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   # Next.js dashboard.
   - package-ecosystem: npm
@@ -14,6 +32,21 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      ui-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Major upgrades of these need code changes; handle them by hand.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint-config-next"
+        update-types: ["version-update:semver-major"]
 
   # actions/checkout, dtolnay/rust-toolchain, Swatinem/rust-cache, ...
   - package-ecosystem: github-actions
@@ -21,3 +54,7 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns:
+          - "*"
