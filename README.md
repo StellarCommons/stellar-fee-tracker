@@ -78,13 +78,21 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 | `GET` | `/fees/current` | Current fee stats from the most recent Horizon poll |
 | `GET` | `/fees/history` | Paginated fee history from SQLite |
 | `GET` | `/fees/trend` | Trend direction and rate-of-change over configurable windows |
+| `GET` | `/fees/recommend` | Quick fee recommendation (about 2 ledgers, medium urgency) |
+| `POST` | `/fees/recommend` | Configurable fee recommendation |
+| `GET` | `/fees/recommend/history` | Most recent persisted recommendations |
+| `GET` | `/fees/account/:account_id` | Fee statistics for an account's recent transactions |
+| `GET` | `/fees/transaction/:hash` | Fee lookup for a transaction in the in-memory store |
+| `GET` | `/fees/wait-advisory` | Whether to submit now or wait, based on stored history |
 | `GET` | `/insights` | Full insights snapshot (averages, extremes, congestion) |
 | `GET` | `/insights/averages` | Rolling average fees for multiple time windows |
 | `GET` | `/insights/extremes` | All-time and windowed min/max fees |
 | `GET` | `/insights/congestion` | Congestion score and trend for the current period |
 | `GET` | `/insights/health` | Insights engine status and last-update timestamp |
 | `GET` | `/alerts/config` | Get the current alert configuration |
-| `POST` | `/alerts/config` | Create or update alert thresholds |
+| `POST` | `/alerts/config` | Create an alert configuration |
+| `PATCH` | `/alerts/config/:id` | Partially update an alert configuration |
+| `DELETE` | `/alerts/config/:id` | Disable (soft-delete) an alert configuration |
 | `GET` | `/alerts/history` | Paginated history of triggered alerts |
 | `GET` | `/metrics` | Prometheus-format metrics |
 
