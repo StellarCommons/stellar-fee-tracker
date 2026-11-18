@@ -28,7 +28,7 @@ impl BackoffCalculator {
     /// Delay in milliseconds before retry attempt `attempt` (0-indexed).
     pub fn delay_for(&self, attempt: u32) -> u64 {
         let scaled =
-            self.config.base_delay_ms as f64 * self.config.multiplier.powi(attempt as i32);
+            self.config.base_delay_ms as f64 * self.config.multiplier.powi(attempt.min(i32::MAX as u32) as i32);
         (scaled as u64).min(self.config.max_delay_ms)
     }
 }

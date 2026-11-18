@@ -27,12 +27,7 @@ impl Default for NetworkLoadConfig {
     }
 }
 
-pub fn mean(values: &[f64]) -> f64 {
-    if values.is_empty() {
-        return 0.0;
-    }
-    values.iter().sum::<f64>() / values.len() as f64
-}
+pub use crate::utilities::rng::mean;
 
 #[derive(Debug, Clone)]
 pub struct NetworkLoad {
@@ -102,13 +97,7 @@ impl NetworkLoad {
     }
 
     fn next_unit(&mut self) -> f64 {
-        let mut x = self.rng;
-        x ^= x >> 12;
-        x ^= x << 25;
-        x ^= x >> 27;
-        self.rng = x;
-        let value = x.wrapping_mul(0x2545_F491_4F6C_DD1D);
-        (value >> 11) as f64 / (1u64 << 53) as f64
+        crate::utilities::rng::next_unit(&mut self.rng)
     }
 }
 

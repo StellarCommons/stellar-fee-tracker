@@ -1,9 +1,4 @@
-pub fn mean(fees: &[f64]) -> f64 {
-    if fees.is_empty() {
-        return 0.0;
-    }
-    fees.iter().sum::<f64>() / fees.len() as f64
-}
+pub use crate::utilities::rng::mean;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeeModelError {
@@ -102,13 +97,7 @@ impl FeeModel {
     }
 
     fn next_unit(&mut self) -> f64 {
-        let mut x = self.rng;
-        x ^= x >> 12;
-        x ^= x << 25;
-        x ^= x >> 27;
-        self.rng = x;
-        let value = x.wrapping_mul(0x2545_F491_4F6C_DD1D);
-        (value >> 11) as f64 / (1u64 << 53) as f64
+        crate::utilities::rng::next_unit(&mut self.rng)
     }
 }
 

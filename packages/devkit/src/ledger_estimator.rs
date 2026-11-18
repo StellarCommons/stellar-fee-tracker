@@ -13,7 +13,7 @@ impl LedgerEstimator {
 
     pub fn estimate_at(&self, now_unix_time: u64) -> u32 {
         let elapsed = now_unix_time.saturating_sub(self.known_unix_time);
-        let ledgers_passed = (elapsed / AVG_CLOSE_TIME_SECS) as u32;
-        self.known_sequence + ledgers_passed
+        let ledgers_passed = u32::try_from(elapsed / AVG_CLOSE_TIME_SECS).unwrap_or(u32::MAX);
+        self.known_sequence.saturating_add(ledgers_passed)
     }
 }

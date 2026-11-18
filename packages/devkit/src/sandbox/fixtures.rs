@@ -1,10 +1,17 @@
 use crate::harness::scenarios::ScenarioFixture;
 use crate::types::FeeRecord;
+use crate::utilities::rng::next_unit;
+
+/// Number of ledgers to generate, capped at `u32::MAX` instead of silently
+/// truncating; ledger numbers saturate at `u32::MAX`.
+fn ledger_count(ledgers: usize) -> u32 {
+    u32::try_from(ledgers).unwrap_or(u32::MAX)
+}
 
 pub fn flat(ledgers: usize, start: u32, fee_charged: i64, max_fee: i64) -> Vec<FeeRecord> {
-    (0..ledgers as u32)
+    (0..ledger_count(ledgers))
         .map(|offset| FeeRecord {
-            ledger: start + offset,
+            ledger: start.saturating_add(offset),
             fee_charged,
             max_fee,
         })
@@ -29,12 +36,12 @@ pub fn ramp(
         }];
     }
     let steps = (ledgers - 1) as i64;
-    (0..ledgers as u32)
+    (0..ledger_count(ledgers))
         .map(|offset| {
             let progress = (offset as i64).min(steps);
             let step = (to_fee - from_fee) as f64 / steps as f64;
             FeeRecord {
-                ledger: start + offset,
+                ledger: start.saturating_add(offset),
                 fee_charged: from_fee + (step * progress as f64).round() as i64,
                 max_fee,
             }
@@ -50,9 +57,9 @@ pub fn spikes(
     every: usize,
 ) -> Vec<FeeRecord> {
     let period = every.max(1);
-    (0..ledgers as u32)
+    (0..ledger_count(ledgers))
         .map(|offset| FeeRecord {
-            ledger: start + offset,
+            ledger: start.saturating_add(offset),
             fee_charged: if (offset as usize).is_multiple_of(period) {
                 spike_fee
             } else {
@@ -75,13 +82,13 @@ pub fn random_walk(
     }
     let mut rng = seed;
     let mut state = base_fee;
-    (0..ledgers as u32)
+    (0..ledger_count(ledgers))
         .map(|offset| {
             let noise = (next_unit(&mut rng) * 2.0 - 1.0) * spread as f64;
             state = (state as f64 + noise).round() as i64;
             state = state.clamp(base_fee - spread.abs(), base_fee + spread.abs());
             FeeRecord {
-                ledger: start + offset,
+                ledger: start.saturating_add(offset),
                 fee_charged: state,
                 max_fee: state,
             }
@@ -139,16 +146,6 @@ pub fn peak_fee(records: &[FeeRecord]) -> i64 {
         .map(|record| record.fee_charged)
         .max()
         .unwrap_or(0)
-}
-
-fn next_unit(rng: &mut u64) -> f64 {
-    let mut x = *rng;
-    x ^= x >> 12;
-    x ^= x << 25;
-    x ^= x >> 27;
-    *rng = x;
-    let value = x.wrapping_mul(0x2545_F491_4F6C_DD1D);
-    (value >> 11) as f64 / (1u64 << 53) as f64
 }
 
 #[cfg(test)]
