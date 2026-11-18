@@ -1,11 +1,12 @@
 # Contributing to Stellar Fee Tracker
 
-This repo is a monorepo with two packages:
+This repo is a monorepo with three packages:
 
 ```
 stellar-fee-tracker/
-├── packages/core/   ← Rust backend (Axum HTTP server + fee polling)
-└── packages/ui/     ← Next.js frontend (dashboard)
+├── packages/core/    ← Rust backend (Axum HTTP server + fee polling)
+├── packages/devkit/  ← Rust library (stellar-devkit: analytics, simulation, storage)
+└── packages/ui/      ← Next.js frontend (dashboard)
 ```
 
 ---
@@ -27,7 +28,7 @@ One command starts both services with the correct environment:
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/your-org/stellar-fee-tracker
+git clone https://github.com/StellarCommons/stellar-fee-tracker
 cd stellar-fee-tracker
 
 # 2. Start everything
@@ -131,15 +132,31 @@ curl http://localhost:3000/api/fees/current
 ## Running tests
 
 ```bash
-# Rust unit + property tests
-cargo test
+# Formatting
+cargo fmt --all -- --check
 
 # Lint
-cargo clippy -- -D warnings
+cargo clippy --all-targets --all-features -- -D warnings
 
-# Next.js lint
-cd packages/ui && npm run lint
+# Rust unit, property and integration tests (whole workspace)
+cargo test --all
+
+# UI: lint, typecheck, tests and build
+cd packages/ui
+npm run lint
+npx tsc --noEmit
+npm test
+npm run build
 ```
+
+These mirror `.github/workflows/ci.yml`; run them before opening a PR.
+
+---
+
+## Code of conduct
+
+Everyone taking part in this project is expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
