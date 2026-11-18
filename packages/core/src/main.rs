@@ -1,22 +1,3 @@
-mod alerts;
-mod analytics;
-mod api;
-mod cache;
-mod cli;
-mod config;
-mod congestion;
-mod db;
-mod error;
-mod insights;
-mod logging;
-mod metrics;
-mod middleware;
-mod recommendation;
-mod repository;
-mod scheduler;
-mod services;
-mod store;
-
 use std::sync::Arc;
 
 use axum::http::{HeaderName, Method};
@@ -27,19 +8,21 @@ use std::time::Duration;
 use tokio::sync::{Mutex, RwLock};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-use crate::alerts::AlertManager;
-use crate::cache::ResponseCache;
-use crate::cli::Cli;
-use crate::config::Config;
-use crate::error::AppError;
-use crate::insights::{FeeInsightsEngine, HorizonFeeDataProvider, InsightsConfig};
-use crate::logging::init_logging;
-use crate::metrics::AppMetrics;
-use crate::middleware::rate_limit::{enforce_rate_limit, RateLimitState};
-use crate::repository::FeeRepository;
-use crate::scheduler::{run_fee_polling_with_retry, run_fee_stats_polling};
-use crate::services::horizon::HorizonClient;
-use crate::store::{FeeHistoryStore, DEFAULT_CAPACITY};
+use stellar_fee_tracker::alerts::AlertManager;
+use stellar_fee_tracker::api;
+use stellar_fee_tracker::cache::ResponseCache;
+use stellar_fee_tracker::cli::Cli;
+use stellar_fee_tracker::config::Config;
+use stellar_fee_tracker::db;
+use stellar_fee_tracker::error::AppError;
+use stellar_fee_tracker::insights::{FeeInsightsEngine, HorizonFeeDataProvider, InsightsConfig};
+use stellar_fee_tracker::logging::init_logging;
+use stellar_fee_tracker::metrics::AppMetrics;
+use stellar_fee_tracker::middleware::rate_limit::{enforce_rate_limit, RateLimitState};
+use stellar_fee_tracker::repository::FeeRepository;
+use stellar_fee_tracker::scheduler::{run_fee_polling_with_retry, run_fee_stats_polling};
+use stellar_fee_tracker::services::horizon::HorizonClient;
+use stellar_fee_tracker::store::{FeeHistoryStore, DEFAULT_CAPACITY};
 
 #[tokio::main]
 async fn main() {

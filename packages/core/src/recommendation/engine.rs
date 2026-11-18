@@ -340,17 +340,6 @@ impl FeeRecommendationEngine {
         (base_fee as f64 * explanation.adjustment_applied) as u64
     }
 
-    #[allow(dead_code)]
-    async fn network_condition_adjustment(&self, base_fee: u64) -> u64 {
-        let condition = self.detect_network_condition().await;
-        match condition.as_str() {
-            "congested" => (base_fee as f64 * 1.30) as u64,
-            "rising" => (base_fee as f64 * 1.15) as u64,
-            "declining" => (base_fee as f64 * 0.95).max(100.0) as u64,
-            _ => base_fee,
-        }
-    }
-
     async fn detect_network_condition(&self) -> String {
         match &self.insights_engine {
             Some(engine) => {
@@ -493,22 +482,6 @@ fn percentile_value(sorted: &[u64], percentile: usize) -> u64 {
     sorted[rank - 1]
 }
 
-#[allow(dead_code)]
-fn find_fee_for_target_ledgers(fees: &[u64], target_ledgers: u32, p50: u64, p99: u64) -> u64 {
-    if fees.is_empty() {
-        return 100;
-    }
-
-    if target_ledgers <= 1 {
-        return p99;
-    }
-    if target_ledgers <= 3 {
-        return (p50 + p99) / 2;
-    }
-
-    p50
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -550,36 +523,10 @@ mod tests {
         assert_eq!(percentile_value(&[], 50), 100);
     }
 
-    #[test]
-    fn find_fee_for_target_ledgers_returns_p99_for_immediate() {
-        let fees = sorted_fees();
-        assert_eq!(find_fee_for_target_ledgers(&fees, 1, 200, 1000), 1000);
-    }
-
-    #[test]
-    fn find_fee_for_target_ledgers_returns_mid_for_short_wait() {
-        let fees = sorted_fees();
-        let fee = find_fee_for_target_ledgers(&fees, 2, 200, 1000);
-        assert_eq!(fee, 600);
-    }
-
-    #[test]
-    fn find_fee_for_target_ledgers_returns_p50_for_long_wait() {
-        let fees = sorted_fees();
-        assert_eq!(find_fee_for_target_ledgers(&fees, 10, 200, 1000), 200);
-    }
-
-    #[test]
-    fn find_fee_for_target_ledgers_empty_returns_default() {
-        assert_eq!(find_fee_for_target_ledgers(&[], 1, 200, 1000), 100);
-    }
-
     #[tokio::test]
     async fn detect_network_condition_without_engine_returns_unknown() {
         let store = Arc::new(RwLock::new(FeeHistoryStore::new(100)));
         let engine = FeeRecommendationEngine::new(store, None, RecommendationConfig::default());
-        let adjusted = engine.network_condition_adjustment(200).await;
-        assert_eq!(adjusted, 200);
         let condition = engine.detect_network_condition().await;
         assert_eq!(condition, "unknown");
     }

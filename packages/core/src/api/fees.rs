@@ -248,7 +248,22 @@ pub async fn fee_history(
             Json(json!({ "error": format!("Failed to serialize fee history: {}", err) })),
         )
     })?;
-    let etag = compute_etag(&body);
+    // `from`/`to` come from `Utc::now()` and change on every request, so they
+    // must not feed the ETag or `If-None-Match` could never match. Hash only
+    // the stable parts of the payload.
+    let etag_source = serde_json::to_vec(&(
+        &payload.window,
+        payload.data_points,
+        &payload.fees,
+        &payload.summary,
+    ))
+    .map_err(|err| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("Failed to serialize fee history: {}", err) })),
+        )
+    })?;
+    let etag = compute_etag(&etag_source);
     let last_modified_value = resolve_last_modified(&state).await;
 
     if if_none_match_matches(&request_headers, &etag) {

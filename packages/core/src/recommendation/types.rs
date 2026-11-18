@@ -89,8 +89,3 @@ pub struct RecommendHistoryEntry {
 pub struct RecommendHistoryResponse {
     pub entries: Vec<RecommendHistoryEntry>,
 }
-
-#[allow(dead_code)]
-pub type RecommendationRequest = RecommendRequest;
-#[allow(dead_code)]
-pub type RecommendationResponse = RecommendResponse;

@@ -30,12 +30,6 @@ impl<T: Clone> ResponseCache<T> {
         self.cached_at = Some(Instant::now());
     }
 
-    #[allow(dead_code)]
-    pub fn invalidate(&mut self) {
-        self.value = None;
-        self.cached_at = None;
-    }
-
     pub fn is_fresh(&self) -> bool {
         match (self.value.as_ref(), self.cached_at) {
             (Some(_), Some(cached_at)) => cached_at.elapsed() <= self.ttl,
@@ -69,16 +63,6 @@ mod tests {
         let mut cache = ResponseCache::new(Duration::from_millis(10));
         cache.set(42_u64);
         thread::sleep(Duration::from_millis(20));
-
-        assert!(cache.get().is_none());
-        assert!(!cache.is_fresh());
-    }
-
-    #[test]
-    fn invalidate_clears_cached_value() {
-        let mut cache = ResponseCache::new(Duration::from_secs(5));
-        cache.set(42_u64);
-        cache.invalidate();
 
         assert!(cache.get().is_none());
         assert!(!cache.is_fresh());
