@@ -30,21 +30,8 @@ impl HorizonClient {
         &self.http
     }
 
-    pub async fn fetch_account_transactions(
-        &self,
-        account_id: &str,
-        limit: u32,
-    ) -> Result<Vec<crate::insights::types::FeeDataPoint>, AppError> {
-        Ok(self
-            .fetch_account_transaction_records(account_id, limit)
-            .await?
-            .into_iter()
-            .map(|(point, _successful)| point)
-            .collect())
-    }
-
-    /// Like [`Self::fetch_account_transactions`] but also returns Horizon's
-    /// `successful` flag for each transaction.
+    /// Fetch an account's recent transactions together with Horizon's
+    /// `successful` flag for each one.
     pub async fn fetch_account_transaction_records(
         &self,
         account_id: &str,

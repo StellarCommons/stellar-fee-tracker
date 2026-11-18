@@ -158,10 +158,6 @@ impl FeeDataProvider for HorizonFeeDataProvider {
         Ok(fee_data_points)
     }
 
-    fn provider_name(&self) -> &str {
-        "Horizon"
-    }
-
     async fn health_check(&self) -> ProviderResult<()> {
         // Use the existing fee_stats endpoint for health check
         self.client

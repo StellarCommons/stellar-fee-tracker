@@ -229,9 +229,7 @@ async fn main() {
                         )
                         .body(axum::body::Body::from(body))
                         .unwrap_or_else(|_| {
-                            axum::response::Response::new(axum::body::Body::from(
-                                "internal error",
-                            ))
+                            axum::response::Response::new(axum::body::Body::from("internal error"))
                         }),
                     Err(err) => {
                         tracing::error!("Failed to render metrics: {}", err);

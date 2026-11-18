@@ -517,7 +517,10 @@ pub async fn transaction_fee_lookup(
             ledger_sequence: p.ledger_sequence,
             timestamp: p.timestamp,
         })),
-        None => Err(AppError::NotFound(format!("Transaction not found: {}", hash))),
+        None => Err(AppError::NotFound(format!(
+            "Transaction not found: {}",
+            hash
+        ))),
     }
 }
 

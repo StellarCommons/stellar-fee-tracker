@@ -101,10 +101,6 @@ impl FeeDataProvider for MockHorizonClient {
         Ok(self.responses.clone())
     }
 
-    fn provider_name(&self) -> &str {
-        "MockHorizon"
-    }
-
     async fn health_check(&self) -> Result<(), ProviderError> {
         if self.healthy {
             Ok(())
@@ -216,11 +212,5 @@ mod tests {
 
         assert!(mock.health_check().await.is_ok());
         assert!(mock.fetch_latest_fees().await.is_err());
-    }
-
-    #[test]
-    fn provider_name_is_mock_horizon() {
-        let mock = MockHorizonClient::new();
-        assert_eq!(mock.provider_name(), "MockHorizon");
     }
 }

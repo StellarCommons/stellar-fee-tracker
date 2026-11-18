@@ -11,9 +11,9 @@ pub fn compute_etag(body: &[u8]) -> String {
     const FNV_OFFSET: u64 = 14_695_981_039_346_656_037;
     const FNV_PRIME: u64 = 1_099_511_628_211;
 
-    let hash = body
-        .iter()
-        .fold(FNV_OFFSET, |acc, &byte| (acc ^ (byte as u64)).wrapping_mul(FNV_PRIME));
+    let hash = body.iter().fold(FNV_OFFSET, |acc, &byte| {
+        (acc ^ (byte as u64)).wrapping_mul(FNV_PRIME)
+    });
 
     format!("\"{:x}\"", hash)
 }

@@ -11,9 +11,6 @@ pub trait FeeDataProvider {
     /// Fetch the latest fee data from the provider
     async fn fetch_latest_fees(&self) -> Result<Vec<FeeDataPoint>, ProviderError>;
 
-    /// Get the name of this provider for logging/debugging
-    fn provider_name(&self) -> &str;
-
     /// Check if the provider is currently available
     #[allow(dead_code)]
     async fn health_check(&self) -> Result<(), ProviderError> {
