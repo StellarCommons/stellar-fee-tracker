@@ -1,0 +1,7 @@
+# Default reviewers for every path. Later, more specific rules take precedence.
+*                  @Tinna23 @BigBen-7
+
+/packages/core/    @Tinna23 @BigBen-7
+/packages/ui/      @Tinna23 @BigBen-7
+/packages/devkit/  @Tinna23 @BigBen-7
+/.github/          @Tinna23 @BigBen-7
