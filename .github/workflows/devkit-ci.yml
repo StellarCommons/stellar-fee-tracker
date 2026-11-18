@@ -20,10 +20,15 @@ on:
       - 'Cargo.lock'
       - '.github/workflows/devkit-ci.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build & Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -34,6 +39,13 @@ jobs:
         with:
           # Mirrors rust-toolchain.toml (#984).
           toolchain: 1.99.1
+          components: rustfmt, clippy
+      - name: Check formatting
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo fmt --check -p stellar-devkit
+      - name: Run Clippy
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo clippy -p stellar-devkit --all-targets -- -D warnings
       - name: Run Cargo Check
         run: cargo check -p stellar-devkit
       - name: Run Cargo Test

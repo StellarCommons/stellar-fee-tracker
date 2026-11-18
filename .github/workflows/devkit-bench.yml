@@ -9,10 +9,15 @@ on:
     branches: [main]
     paths: ['packages/devkit/**']
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   benchmark:
     name: Criterion Benchmarks
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: packages/devkit

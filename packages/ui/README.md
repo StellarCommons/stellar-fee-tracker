@@ -71,8 +71,8 @@ Typical setups:
 | Docker Compose | `NEXT_PUBLIC_API_URL=/api`, `BACKEND_URL=http://backend:8080` |
 | Render | `NEXT_PUBLIC_API_URL=/api`, `BACKEND_HOST` supplied from the API service |
 
-`NEXT_PUBLIC_STELLAR_NETWORK` also appears in `docker-compose.yml` and `render.yaml`, but the
-UI code does not read it yet.
+`NEXT_PUBLIC_STELLAR_NETWORK` still appears in `render.yaml`, but the UI code does not read it, so
+it is no longer set in `docker-compose.yml`.
 
 ## Docker
 

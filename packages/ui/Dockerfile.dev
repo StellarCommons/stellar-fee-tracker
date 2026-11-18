@@ -4,14 +4,20 @@
 FROM node:20-alpine
 
 WORKDIR /app
+# WORKDIR creates /app as root; hand it to the unprivileged `node` user that
+# ships with the image before dropping privileges.
+RUN chown node:node /app
 
-COPY package*.json ./
+USER node
+
+COPY --chown=node:node package*.json ./
 # `npm ci` installs exactly what package-lock.json pins, so the image does not
 # drift from the lockfile the way `npm install` can.
 RUN npm ci
 
-COPY . .
+COPY --chown=node:node . .
 
 EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+# Bind to all interfaces so the published port is reachable from the host.
+CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0"]

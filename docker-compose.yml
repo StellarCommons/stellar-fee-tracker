@@ -31,7 +31,6 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: /api
       BACKEND_URL: http://backend:8080    # Docker service name, not localhost
-      NEXT_PUBLIC_STELLAR_NETWORK: testnet
     depends_on:
       backend:
         condition: service_healthy
