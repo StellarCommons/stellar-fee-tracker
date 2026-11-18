@@ -280,6 +280,7 @@ impl FeeInsightsEngine {
         RollingAverages {
             short_term: default_result.clone(),
             medium_term: default_result.clone(),
+            six_hour: default_result.clone(),
             long_term: default_result,
         }
     }

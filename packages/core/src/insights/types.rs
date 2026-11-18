@@ -27,6 +27,7 @@ pub struct CurrentInsights {
 pub struct RollingAverages {
     pub short_term: AverageResult,  // 5 minutes
     pub medium_term: AverageResult, // 1 hour
+    pub six_hour: AverageResult,    // 6 hours
     pub long_term: AverageResult,   // 24 hours
 }
 

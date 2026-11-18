@@ -556,6 +556,7 @@ mod tests {
                 rolling_averages: RollingAverages {
                     short_term: avg.clone(),
                     medium_term: avg.clone(),
+                    six_hour: avg.clone(),
                     long_term: avg,
                 },
                 extremes: crate::insights::FeeExtremes {
@@ -689,6 +690,7 @@ mod tests {
                 rolling_averages: RollingAverages {
                     short_term: avg.clone(),
                     medium_term: avg.clone(),
+                    six_hour: avg.clone(),
                     long_term: avg,
                 },
                 extremes: crate::insights::FeeExtremes {

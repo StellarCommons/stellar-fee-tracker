@@ -51,6 +51,11 @@ impl Default for InsightsConfig {
                     min_samples: 20,
                 },
                 TimeWindow {
+                    name: "six_hour".to_string(),
+                    duration: Duration::hours(6),
+                    min_samples: 50,
+                },
+                TimeWindow {
                     name: "long_term".to_string(),
                     duration: Duration::hours(24), // ~24 hour window (matches UI label)
                     min_samples: 100,

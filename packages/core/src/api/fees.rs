@@ -332,12 +332,16 @@ fn percentile_nearest_rank(sorted: &[u64], percentile: usize) -> u64 {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TrendChanges {
+    /// Change in the 5-minute average relative to the 1-hour average.
     #[serde(rename = "5m_pct")]
     pub five_m_pct: Option<f64>,
+    /// Change in the 1-hour average relative to the 24-hour average.
     #[serde(rename = "1h_pct")]
     pub one_h_pct: Option<f64>,
+    /// Change in the 6-hour average relative to the 24-hour average.
     #[serde(rename = "6h_pct")]
     pub six_h_pct: Option<f64>,
+    /// No longer-window baseline is available for a 24-hour comparison.
     #[serde(rename = "24h_pct")]
     pub twenty_four_h_pct: Option<f64>,
 }
@@ -365,11 +369,13 @@ pub async fn fee_trend(State(state): State<FeesState>) -> Result<Json<FeeTrendRe
     //            deviates from the 1-hour trend.
     //  1h_pct  = (medium_term − long_term) / long_term    → how much the last 1 hour
     //            deviates from the 24-hour trend.
+    //  6h_pct  = (six_hour − long_term) / long_term       → how much the last 6 hours
+    //            deviates from the 24-hour trend.
     //  24h_pct = None; we have no longer-window baseline to compare against.
     let changes = TrendChanges {
         five_m_pct: percent_change(averages.short_term.value, &averages.medium_term),
         one_h_pct: percent_change(averages.medium_term.value, &averages.long_term),
-        six_h_pct: percent_change(averages.medium_term.value, &averages.long_term),
+        six_h_pct: percent_change(averages.six_hour.value, &averages.long_term),
         twenty_four_h_pct: None,
     };
 

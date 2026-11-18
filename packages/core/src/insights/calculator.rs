@@ -107,11 +107,13 @@ impl RollingAverageCalculator {
         // Calculate average for each predefined window type
         let short_term = self.calculate_average_for_window("short_term", now)?;
         let medium_term = self.calculate_average_for_window("medium_term", now)?;
+        let six_hour = self.calculate_average_for_window("six_hour", now)?;
         let long_term = self.calculate_average_for_window("long_term", now)?;
 
         Ok(RollingAverages {
             short_term,
             medium_term,
+            six_hour,
             long_term,
         })
     }
