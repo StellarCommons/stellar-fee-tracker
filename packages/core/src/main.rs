@@ -152,9 +152,11 @@ async fn main() {
 
     // ---- CORS policy ----
     // Log and skip invalid origins rather than panicking at startup.
+    let allow_any_origin = config.allowed_origins.iter().any(|o| o == "*");
     let origins: Vec<axum::http::HeaderValue> = config
         .allowed_origins
         .iter()
+        .filter(|o| o.as_str() != "*")
         .filter_map(|o| match o.parse() {
             Ok(v) => Some(v),
             Err(err) => {
@@ -164,8 +166,18 @@ async fn main() {
         })
         .collect();
 
+    if !allow_any_origin && origins.is_empty() {
+        tracing::warn!("No valid ALLOWED_ORIGINS configured; all cross-origin requests will be blocked");
+    }
+
+    let allow_origin = if allow_any_origin {
+        AllowOrigin::any()
+    } else {
+        AllowOrigin::list(origins)
+    };
+
     let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::list(origins))
+        .allow_origin(allow_origin)
         .allow_methods([
             Method::GET,
             Method::POST,

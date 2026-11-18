@@ -181,39 +181,9 @@ pub struct MaxFeeStats {
 }
 
 impl HorizonClient {
-    pub async fn fetch_fee_stats(&self) -> Result<HorizonFeeStats, AppError> {
-        let url = format!("{}/fee_stats", self.base_url);
-
-        let response = self
-            .http
-            .get(&url)
-            .send()
-            .await
-            .map_err(|err| AppError::Network(err.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(AppError::Network(format!(
-                "Horizon returned HTTP {}",
-                response.status()
-            )));
-        }
-
-        let stats = response
-            .json::<HorizonFeeStats>()
-            .await
-            .map_err(|err| AppError::Parse(err.to_string()))?;
-
-        Ok(stats)
-    }
-
-    /// Fetch the complete `/fee_stats` payload from Horizon (Issue #550).
-    ///
-    /// [`HorizonClient::fetch_fee_stats`] returns only the subset needed by
-    /// the public `/fees/current` API; this method surfaces every field —
-    /// ledger number, capacity usage, mean/median fee charged and the
-    /// `max_fee` distribution — required for accurate fee modelling.
-    #[allow(dead_code)]
-    pub async fn fetch_fee_stats_full(&self) -> Result<FeeStatsResponse, AppError> {
+    /// Single GET of `/fee_stats` shared by both fetch methods: one place for
+    /// the timeout, HTTP-status handling and JSON decoding.
+    async fn get_fee_stats<T: serde::de::DeserializeOwned>(&self) -> Result<T, AppError> {
         let url = format!("{}/fee_stats", self.base_url);
 
         let response = self
@@ -231,12 +201,26 @@ impl HorizonClient {
             )));
         }
 
-        let stats = response
-            .json::<FeeStatsResponse>()
+        response
+            .json::<T>()
             .await
-            .map_err(|e| AppError::Parse(format!("Failed to parse fee_stats: {}", e)))?;
+            .map_err(|e| AppError::Parse(format!("Failed to parse fee_stats: {}", e)))
+    }
 
-        Ok(stats)
+    /// Fetch the subset of `/fee_stats` used by the public `/fees/current` API.
+    pub async fn fetch_fee_stats(&self) -> Result<HorizonFeeStats, AppError> {
+        self.get_fee_stats().await
+    }
+
+    /// Fetch the complete `/fee_stats` payload from Horizon (Issue #550).
+    ///
+    /// [`HorizonClient::fetch_fee_stats`] returns only the subset needed by
+    /// the public `/fees/current` API; this method surfaces every field —
+    /// ledger number, capacity usage, mean/median fee charged and the
+    /// `max_fee` distribution — required for accurate fee modelling.
+    #[allow(dead_code)]
+    pub async fn fetch_fee_stats_full(&self) -> Result<FeeStatsResponse, AppError> {
+        self.get_fee_stats().await
     }
 }
 
