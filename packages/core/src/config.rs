@@ -106,6 +106,7 @@ impl Config {
             .clone()
             .or_else(|| get("HORIZON_URL"))
             .unwrap_or_else(|| stellar_network.default_horizon_url().to_string());
+        let horizon_url = normalize_horizon_url(&horizon_url)?;
 
         // -------- Poll Interval --------
         let poll_interval_seconds = cli
@@ -139,7 +140,8 @@ impl Config {
 
         // -------- Rate limiting --------
         let rate_limit_per_minute = get("RATE_LIMIT_PER_MINUTE")
-            .and_then(|v| v.parse::<u32>().ok())
+            .map(|raw| parse_env_value::<u32>("RATE_LIMIT_PER_MINUTE", &raw))
+            .transpose()?
             .filter(|v| *v > 0)
             .unwrap_or(60);
 
@@ -168,7 +170,8 @@ impl Config {
         };
 
         let stale_data_threshold_seconds = get("STALE_DATA_THRESHOLD_SECONDS")
-            .and_then(|v| v.parse::<i64>().ok())
+            .map(|raw| parse_env_value::<i64>("STALE_DATA_THRESHOLD_SECONDS", &raw))
+            .transpose()?
             .filter(|v| *v > 0)
             .unwrap_or(300);
 
@@ -200,24 +203,50 @@ impl Config {
             .map(|raw| parse_env_value::<u64>("STORAGE_RETENTION_DAYS", &raw))
             .transpose()?
             .unwrap_or(7);
+        // 0 would prune every fee point on each tick; huge values overflow
+        // chrono's Duration.
+        if !(1..=3650).contains(&storage_retention_days) {
+            return Err("STORAGE_RETENTION_DAYS must be between 1 and 3650".to_string());
+        }
 
         // -------- Recommendation config --------
         let rec_defaults = RecommendationConfig::default();
+        let rec_env = |key: &str| -> Option<String> { get(key) };
         let recommendation = RecommendationConfig {
-            default_confidence: get("REC_DEFAULT_CONFIDENCE")
-                .and_then(|v| v.parse::<f64>().ok())
-                .unwrap_or(rec_defaults.default_confidence),
-            default_ledgers: get("REC_DEFAULT_LEDGERS")
-                .and_then(|v| v.parse::<u8>().ok())
-                .unwrap_or(rec_defaults.default_ledgers),
-            history_window_secs: get("REC_HISTORY_WINDOW_SECS")
-                .and_then(|v| v.parse::<u64>().ok())
+            default_confidence: match rec_env("REC_DEFAULT_CONFIDENCE") {
+                Some(raw) => {
+                    let v = parse_env_value::<f64>("REC_DEFAULT_CONFIDENCE", &raw)?;
+                    if !(v > 0.0 && v <= 1.0) {
+                        return Err(format!(
+                            "REC_DEFAULT_CONFIDENCE must be in (0, 1], got '{}'",
+                            raw
+                        ));
+                    }
+                    v
+                }
+                None => rec_defaults.default_confidence,
+            },
+            default_ledgers: match rec_env("REC_DEFAULT_LEDGERS") {
+                Some(raw) => {
+                    let v = parse_env_value::<u8>("REC_DEFAULT_LEDGERS", &raw)?;
+                    if v < 1 {
+                        return Err("REC_DEFAULT_LEDGERS must be >= 1".to_string());
+                    }
+                    v
+                }
+                None => rec_defaults.default_ledgers,
+            },
+            history_window_secs: rec_env("REC_HISTORY_WINDOW_SECS")
+                .map(|raw| parse_env_value::<u64>("REC_HISTORY_WINDOW_SECS", &raw))
+                .transpose()?
                 .unwrap_or(rec_defaults.history_window_secs),
-            cache_ttl_secs: get("REC_CACHE_TTL_SECS")
-                .and_then(|v| v.parse::<u64>().ok())
+            cache_ttl_secs: rec_env("REC_CACHE_TTL_SECS")
+                .map(|raw| parse_env_value::<u64>("REC_CACHE_TTL_SECS", &raw))
+                .transpose()?
                 .unwrap_or(rec_defaults.cache_ttl_secs),
-            min_sample_count: get("REC_MIN_SAMPLE_COUNT")
-                .and_then(|v| v.parse::<usize>().ok())
+            min_sample_count: rec_env("REC_MIN_SAMPLE_COUNT")
+                .map(|raw| parse_env_value::<usize>("REC_MIN_SAMPLE_COUNT", &raw))
+                .transpose()?
                 .unwrap_or(rec_defaults.min_sample_count),
         };
 
@@ -241,6 +270,23 @@ impl Config {
             stale_data_threshold_seconds,
         })
     }
+}
+
+/// Trim whitespace and trailing slashes from the Horizon base URL and require
+/// an http(s) scheme, so `format!("{}/fee_stats", url)` never yields `//`.
+fn normalize_horizon_url(raw: &str) -> Result<String, String> {
+    let url = raw.trim().trim_end_matches('/');
+    let has_host = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .is_some_and(|rest| !rest.is_empty());
+    if !has_host {
+        return Err(format!(
+            "Invalid HORIZON_URL: '{}' (must start with http:// or https://)",
+            raw
+        ));
+    }
+    Ok(url.to_string())
 }
 
 /// Parse an environment value, failing loudly (rather than silently falling
@@ -553,5 +599,47 @@ mod tests {
         let env = HashMap::from([("STALE_DATA_THRESHOLD_SECONDS", "0")]);
         let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
         assert_eq!(config.stale_data_threshold_seconds, 300);
+    }
+
+    #[test]
+    fn horizon_url_trailing_slash_is_trimmed() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("HORIZON_URL", "https://horizon.example.org/")]);
+        let config = Config::from_sources_with_overrides(&cli, &env).unwrap();
+        assert_eq!(config.horizon_url, "https://horizon.example.org");
+    }
+
+    #[test]
+    fn horizon_url_without_scheme_is_rejected() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("HORIZON_URL", "horizon.example.org")]);
+        assert!(Config::from_sources_with_overrides(&cli, &env).is_err());
+    }
+
+    #[test]
+    fn storage_retention_zero_is_rejected() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("STORAGE_RETENTION_DAYS", "0")]);
+        assert!(Config::from_sources_with_overrides(&cli, &env).is_err());
+    }
+
+    #[test]
+    fn invalid_rate_limit_is_rejected() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("RATE_LIMIT_PER_MINUTE", "abc")]);
+        assert!(Config::from_sources_with_overrides(&cli, &env).is_err());
+    }
+
+    #[test]
+    fn out_of_range_rec_values_are_rejected() {
+        let cli = make_cli("testnet", None);
+        for (key, value) in [
+            ("REC_DEFAULT_CONFIDENCE", "NaN"),
+            ("REC_DEFAULT_CONFIDENCE", "5.0"),
+            ("REC_DEFAULT_LEDGERS", "0"),
+        ] {
+            let env = HashMap::from([(key, value)]);
+            assert!(Config::from_sources_with_overrides(&cli, &env).is_err());
+        }
     }
 }

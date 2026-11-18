@@ -84,9 +84,14 @@ async fn main() {
 
     let fee_store = Arc::new(RwLock::new(FeeHistoryStore::new(DEFAULT_CAPACITY)));
 
-    let insights_engine = Arc::new(RwLock::new(FeeInsightsEngine::new(
-        InsightsConfig::default(),
-    )));
+    let mut insights_config = InsightsConfig::default();
+    if let Some(interval) = i64::try_from(config.poll_interval_seconds)
+        .ok()
+        .and_then(chrono::Duration::try_seconds)
+    {
+        insights_config.polling_interval = interval;
+    }
+    let insights_engine = Arc::new(RwLock::new(FeeInsightsEngine::new(insights_config)));
     let current_fees_cache = Arc::new(Mutex::new(ResponseCache::new(Duration::from_secs(
         config.cache_ttl_seconds,
     ))));
