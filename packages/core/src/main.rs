@@ -247,6 +247,7 @@ async fn main() {
                 listener,
                 app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
             )
+            .with_graceful_shutdown(crate::scheduler::shutdown_signal())
             .await
             .unwrap_or_else(|err| tracing::error!("Server error: {}", err));
         },

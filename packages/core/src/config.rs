@@ -188,6 +188,10 @@ impl Config {
             .map(|raw| parse_env_value::<u32>("RETRY_ATTEMPTS", &raw))
             .transpose()?
             .unwrap_or(3);
+        // 0 would make every poll skip the fetch entirely.
+        if retry_attempts == 0 {
+            return Err("RETRY_ATTEMPTS must be >= 1".to_string());
+        }
 
         let base_retry_delay_ms = get("BASE_RETRY_DELAY_MS")
             .map(|raw| parse_env_value::<u64>("BASE_RETRY_DELAY_MS", &raw))
@@ -641,5 +645,13 @@ mod tests {
             let env = HashMap::from([(key, value)]);
             assert!(Config::from_sources_with_overrides(&cli, &env).is_err());
         }
+    }
+
+    #[test]
+    fn retry_attempts_zero_is_rejected() {
+        let cli = make_cli("testnet", None);
+        let env = HashMap::from([("RETRY_ATTEMPTS", "0")]);
+        let err = Config::from_sources_with_overrides(&cli, &env).unwrap_err();
+        assert!(err.contains("RETRY_ATTEMPTS"));
     }
 }

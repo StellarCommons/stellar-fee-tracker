@@ -12,9 +12,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::Utc;
-use tokio::signal;
 use tokio::sync::RwLock;
-use tokio::time;
+use tokio::time::{self, MissedTickBehavior};
 
 use crate::alerts::AlertManager;
 use crate::error::AppError;
@@ -41,6 +40,9 @@ pub async fn run_fee_polling_with_retry(
     alert_manager: Option<Arc<AlertManager>>,
 ) {
     let mut interval = time::interval(Duration::from_secs(poll_interval_seconds));
+    // A slow poll (retries can sleep up to 30s) must not trigger a burst of
+    // catch-up polls against Horizon.
+    interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
     tracing::info!(
         "Fee polling started (interval: {}s, max retries: {}, retention: {}d)",
@@ -65,7 +67,7 @@ pub async fn run_fee_polling_with_retry(
                 ).await;
             }
 
-            _ = signal::ctrl_c() => {
+            _ = shutdown_signal() => {
                 tracing::info!("Shutdown signal received. Stopping polling.");
                 break;
             }
@@ -205,6 +207,42 @@ async fn poll_once(
     }
 }
 
+/// Upper bound for a single retry sleep.
+const MAX_DELAY_MS: u64 = 30_000;
+
+/// Exponential backoff (`base * 2^attempt`) plus random jitter of up to
+/// `base`, capped at [`MAX_DELAY_MS`]. Shared by both retry loops.
+pub(crate) fn backoff_delay_ms(attempt: u32, base_delay_ms: u64) -> u64 {
+    let exponential = base_delay_ms.saturating_mul(1u64.checked_shl(attempt).unwrap_or(u64::MAX));
+    let jitter = rand::random::<u64>() % base_delay_ms.max(1);
+    exponential.saturating_add(jitter).min(MAX_DELAY_MS)
+}
+
+/// Resolves on Ctrl-C or (on Unix) SIGTERM. Used by the pollers and, via
+/// `main.rs`, by the HTTP server's graceful shutdown.
+pub async fn shutdown_signal() {
+    let ctrl_c = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut sig) => {
+                sig.recv().await;
+            }
+            Err(_) => std::future::pending::<()>().await,
+        }
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {}
+        _ = terminate => {}
+    }
+}
+
 /// Attempt to fetch fee data, retrying on network errors with exponential
 /// backoff + random jitter. Parse errors are not retried.
 ///
@@ -215,8 +253,6 @@ pub async fn fetch_with_retry(
     max_attempts: u32,
     base_delay_ms: u64,
 ) -> Option<Vec<FeeDataPoint>> {
-    const MAX_DELAY_MS: u64 = 30_000;
-
     for attempt in 0..max_attempts {
         match provider.fetch_latest_fees().await {
             Ok(points) => {
@@ -232,12 +268,7 @@ pub async fn fetch_with_retry(
             }
 
             Err(err) => {
-                let backoff_ms = {
-                    let exponential =
-                        base_delay_ms.saturating_mul(1u64.checked_shl(attempt).unwrap_or(u64::MAX));
-                    let jitter = rand::random::<u64>() % base_delay_ms.max(1);
-                    exponential.saturating_add(jitter).min(MAX_DELAY_MS)
-                };
+                let backoff_ms = backoff_delay_ms(attempt, base_delay_ms);
 
                 tracing::warn!(
                     "Fetch attempt {}/{} failed: {} — retrying in {}ms",
@@ -274,6 +305,9 @@ pub async fn run_fee_stats_polling(
     metrics: Option<Arc<AppMetrics>>,
 ) {
     let mut interval = time::interval(Duration::from_secs(poll_interval_seconds));
+    // A slow poll (retries can sleep up to 30s) must not trigger a burst of
+    // catch-up polls against Horizon.
+    interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
     tracing::info!(
         "Fee-stats polling started (interval: {}s, max retries: {}, retention: {}d)",
@@ -296,7 +330,7 @@ pub async fn run_fee_stats_polling(
                 .await;
             }
 
-            _ = signal::ctrl_c() => {
+            _ = shutdown_signal() => {
                 tracing::info!("Shutdown signal received. Stopping fee-stats polling.");
                 break;
             }
@@ -380,8 +414,6 @@ pub async fn fetch_fee_stats_with_retry(
     max_attempts: u32,
     base_delay_ms: u64,
 ) -> Option<FeeStatsSnapshot> {
-    const MAX_DELAY_MS: u64 = 30_000;
-
     for attempt in 0..max_attempts {
         match client.fetch_fee_stats_full().await {
             Ok(response) => match FeeStatsSnapshot::try_from(&response) {
@@ -406,12 +438,7 @@ pub async fn fetch_fee_stats_with_retry(
             }
 
             Err(err) => {
-                let backoff_ms = {
-                    let exponential =
-                        base_delay_ms.saturating_mul(1u64.checked_shl(attempt).unwrap_or(u64::MAX));
-                    let jitter = rand::random::<u64>() % base_delay_ms.max(1);
-                    exponential.saturating_add(jitter).min(MAX_DELAY_MS)
-                };
+                let backoff_ms = backoff_delay_ms(attempt, base_delay_ms);
 
                 tracing::warn!(
                     "fee_stats attempt {}/{} failed: {} — retrying in {}ms",
@@ -431,6 +458,15 @@ pub async fn fetch_fee_stats_with_retry(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn backoff_delay_is_capped_and_never_overflows() {
+        for attempt in [0, 1, 5, 40, 63, 64, 1000, u32::MAX] {
+            assert!(super::backoff_delay_ms(attempt, 1000) <= super::MAX_DELAY_MS);
+        }
+        assert!(super::backoff_delay_ms(0, 100) >= 100);
+        assert_eq!(super::backoff_delay_ms(3, 0), 0);
+    }
+
     use super::*;
     use chrono::Utc;
 
