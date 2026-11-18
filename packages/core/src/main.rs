@@ -192,9 +192,9 @@ async fn main() {
     //
     // Route tiers (from least to most restricted):
     //
-    //  /health   \u2014 no rate limit, no auth (must always respond for load-balancer probes)
-    //  /metrics  \u2014 rate limited, NO API-key auth (must be scrapeable by Prometheus agents)
-    //  all else  \u2014 rate limited + optional API-key auth
+    //  /health   - no rate limit, no auth (must always respond for load-balancer probes)
+    //  /metrics  - rate limited, NO API-key auth (must be scrapeable by Prometheus agents)
+    //  all else  - rate limited + optional API-key auth
     //
     // fees routes get shared state (Horizon client, store, insights engine)
     // insights routes get Arc<RwLock<FeeInsightsEngine>> as their own state

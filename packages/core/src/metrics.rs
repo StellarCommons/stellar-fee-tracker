@@ -1,11 +1,11 @@
 //! Prometheus metrics registry for the Stellar fee tracker.
 //!
-//! [] owns all registered metrics and the [] they
-//! belong to. Construct it once at startup, wrap in , and pass it
+//! [`AppMetrics`] owns all registered metrics and the [`Registry`] they
+//! belong to. Construct it once at startup, wrap in [`std::sync::Arc`], and pass it
 //! to the scheduler and HTTP middleware.
 //!
-//! Exposed at  in Prometheus text exposition format
-//! (). The endpoint is intentionally excluded
+//! Exposed at `GET /metrics` in Prometheus text exposition format
+//! ([`prometheus::TextEncoder`]). The endpoint is intentionally excluded
 //! from API-key auth so it can be scraped by Prometheus / Grafana agents.
 
 use prometheus::{Counter, Gauge, Opts, Registry};

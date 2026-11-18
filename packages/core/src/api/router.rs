@@ -56,6 +56,7 @@ pub fn build_api_router(deps: ApiRouterDeps) -> Router {
             fee_store: deps.fee_store.clone(),
             insights_engine: Some(deps.insights_engine.clone()),
             horizon_client: deps.horizon_client,
+            repository: Some(deps.repository.clone()),
         }));
 
     let recommendation_engine = FeeRecommendationEngine::new(

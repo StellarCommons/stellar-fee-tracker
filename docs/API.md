@@ -85,103 +85,333 @@ curl http://localhost:8080/fees/current
 
 | Status | Body | Cause |
 |---|---|---|
-| `503 Service Unavailable` | `{"error": "Horizon unavailable"}` | Horizon could not be reached |
-| `500 Internal Server Error` | `{"error": "<reason>"}` | Unexpected server error |
+| `502 Bad Gateway` | `{"error": "<reason>"}` | Horizon could not be reached or returned an error (`AppError::Network`) |
+| `422 Unprocessable Entity` | `{"error": "<reason>"}` | Horizon's response could not be parsed |
+| `500 Internal Server Error` | `{"error": "<reason>"}` | The fee stats provider is missing or another unexpected error occurred |
+
+Responses are cached for a few seconds and carry `ETag`, `Last-Modified` and `Cache-Control`; send `If-None-Match` to receive `304 Not Modified`.
 
 ---
 
 ## `GET /fees/history`
 
-Returns paginated fee history from SQLite.
+Returns fee data points held in the in-memory store for a recent window, with a summary.
 
 **Query parameters**
 
 | Name | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `limit` | `u32` | No | `100` | Number of records to return (max `1000`) |
-| `offset` | `u32` | No | `0` | Number of records to skip |
-| `from` | `i64` | No | — | Start of time range (Unix timestamp, seconds) |
-| `to` | `i64` | No | — | End of time range (Unix timestamp, seconds) |
+| `window` | `string` | No | `1h` | One of `1h`, `6h`, `24h` |
 
 **Request**
 
 ```bash
-# Last 50 records
-curl "http://localhost:8080/fees/history?limit=50"
-
-# Records from the last hour
-curl "http://localhost:8080/fees/history?from=1700000000&to=1700003600"
+curl "http://localhost:8080/fees/history?window=6h"
 ```
 
 **Response** — `200 OK`
 
 ```json
 {
-  "records": [
+  "window": "6h",
+  "from": "2024-01-15T04:30:00Z",
+  "to": "2024-01-15T10:30:00Z",
+  "data_points": 2,
+  "fees": [
     {
-      "id": 1,
-      "timestamp": 1700000000,
-      "base_fee": 100,
-      "min_fee": 100,
-      "max_fee": 5000,
-      "avg_fee": 300,
+      "fee_amount": 100,
+      "timestamp": "2024-01-15T10:29:00Z",
+      "transaction_hash": "…",
       "ledger_sequence": 48000001
     }
   ],
-  "total": 1,
-  "limit": 100,
-  "offset": 0
+  "summary": { "min": 100, "max": 5000, "avg": 300.0, "p50": 100, "p95": 5000 }
 }
 ```
+
+`from` and `to` are the window bounds computed when the request is handled, and `summary` uses nearest-rank percentiles (all zeros when there are no data points). The `fees` items are the tracker's fee data points; the exact fields are those of `FeeDataPoint` in `packages/core/src/insights/types.rs`.
+
+The response carries `ETag`, `Last-Modified` and `Cache-Control` headers and honours `If-None-Match`.
 
 **Error responses**
 
 | Status | Body | Cause |
 |---|---|---|
-| `400 Bad Request` | `{"error": "invalid limit"}` | `limit` exceeds maximum or is not a number |
-| `500 Internal Server Error` | `{"error": "<reason>"}` | Database query failed |
+| `400 Bad Request` | `{"error": "Unsupported window value: <value>"}` | `window` is not `1h`, `6h` or `24h` |
+| `500 Internal Server Error` | `{"error": "Failed to serialize fee history: <reason>"}` | Serialization failed |
 
 ---
 
 ## `GET /fees/trend`
 
-Returns the trend direction and rate-of-change over configurable time windows.
-
-**Query parameters**
-
-| Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `window_minutes` | `u32` | No | `60` | Window size in minutes |
+Returns the current congestion trend and how recent fee averages compare with longer baselines. It takes **no query parameters**.
 
 **Request**
 
 ```bash
-curl "http://localhost:8080/fees/trend?window_minutes=30"
+curl http://localhost:8080/fees/trend
 ```
 
 **Response** — `200 OK`
 
 ```json
 {
-  "direction": "Upward",
-  "strength": "Moderate",
-  "rate_of_change": 12.4,
-  "window_minutes": 30,
-  "data_points": 180,
+  "status": "Rising",
+  "trend_strength": "Moderate",
+  "changes": {
+    "5m_pct": 12.4,
+    "1h_pct": 3.1,
+    "6h_pct": 3.1,
+    "24h_pct": null
+  },
+  "recent_spike_count": 1,
+  "predicted_congestion_minutes": null,
+  "last_updated": "2024-01-15T10:30:00Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `status` | `string` | `Normal`, `Rising`, `Congested` or `Declining` |
+| `trend_strength` | `string` | `Weak`, `Moderate` or `Strong` |
+| `changes.5m_pct` | `f64 \| null` | Percent change of the 5-minute average against the 1-hour average |
+| `changes.1h_pct` | `f64 \| null` | Percent change of the 1-hour average against the 24-hour average |
+| `changes.6h_pct` | `f64 \| null` | Currently computed exactly like `1h_pct` (a known issue: it is not a separate 6-hour figure) |
+| `changes.24h_pct` | `null` | Always `null`: there is no longer baseline to compare against |
+| `recent_spike_count` | `u32` | Spikes detected recently |
+| `predicted_congestion_minutes` | `i64 \| null` | Predicted remaining congestion duration, when available |
+| `last_updated` | `string` | ISO 8601 timestamp of the insights snapshot |
+
+A change is `null` when its baseline window is only partially filled or is not positive.
+
+**Error responses**
+
+| Status | Body | Cause |
+|---|---|---|
+| `500 Internal Server Error` | `{"error": "Insights engine missing from fees state"}` | Insights engine is not configured |
+
+---
+
+## `GET /fees/account/:account_id`
+
+Returns fee statistics for an account's 100 most recent transactions, fetched live from Horizon.
+
+**Path parameters:** `account_id` — a 56-character Stellar address starting with `G`.
+
+```bash
+curl http://localhost:8080/fees/account/GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF
+```
+
+**Response** — `200 OK`
+
+```json
+{
+  "account_id": "G…",
+  "transaction_count": 100,
+  "total_fees": 12000,
+  "avg_fee": 120.0,
+  "min_fee": 100,
+  "max_fee": 500,
+  "transactions": [
+    {
+      "hash": "…",
+      "fee_charged": 100,
+      "ledger": 48000001,
+      "created_at": "2024-01-15T10:29:00+00:00",
+      "successful": true
+    }
+  ]
+}
+```
+
+| Status | Body | Cause |
+|---|---|---|
+| `400 Bad Request` | `{"error": "…"}` | `account_id` is not a valid Stellar address |
+| `404 Not Found` | `{"error": "No transactions found for account: <id>"}` | The account has no transactions |
+| `502 Bad Gateway` | `{"error": "…"}` | Horizon could not be reached |
+| `422 Unprocessable Entity` | `{"error": "…"}` | Horizon's response could not be parsed |
+| `500 Internal Server Error` | `{"error": "Horizon client missing from fees state"}` | Horizon client is not configured |
+
+---
+
+## `GET /fees/transaction/:hash`
+
+Looks up a transaction's fee in the tracker's in-memory store (it does not query Horizon).
+
+**Path parameters:** `hash` — 64 hexadecimal characters.
+
+```bash
+curl http://localhost:8080/fees/transaction/<64-hex-hash>
+```
+
+**Response** — `200 OK`
+
+```json
+{
+  "transaction_hash": "…",
+  "fee_amount": 100,
+  "ledger_sequence": 48000001,
+  "timestamp": "2024-01-15T10:29:00Z"
+}
+```
+
+| Status | Body | Cause |
+|---|---|---|
+| `400 Bad Request` | `{"error": "transaction hash must be 64 hexadecimal characters"}` | Malformed hash |
+| `404 Not Found` | `{"error": "Transaction not found: <hash>"}` | The hash is not in the in-memory store |
+
+---
+
+## `GET /fees/wait-advisory`
+
+Advises whether to submit now or wait, by comparing the current fee with the stored history.
+
+**Query parameters**
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `window_secs` | `u64` | No | `86400` | Comparison window in seconds, `1` to `604800` (7 days) |
+
+```bash
+curl "http://localhost:8080/fees/wait-advisory?window_secs=3600"
+```
+
+**Response** — `200 OK`
+
+```json
+{
+  "recommendation": "consider_waiting",
+  "reason": "…",
+  "congestion_level": "moderate",
+  "congestion_score": 0.54,
+  "current_fee_percentile": 82.0,
+  "capacity_usage_available": true,
+  "history_sample_count": 340,
+  "actual_window_secs": 3600,
   "computed_at": "2024-01-15T10:30:00Z"
 }
 ```
 
-Fields:
+| Field | Description |
+|---|---|
+| `recommendation` | `submit_now`, `consider_waiting` or `wait` |
+| `congestion_level` | `low`, `moderate`, `high` or `critical` |
+| `congestion_score` | Weighted score from `0.0` to `1.0` |
+| `current_fee_percentile` | Where the current fee sits in the window's distribution (0–100) |
+| `capacity_usage_available` | Whether the latest `fee_stats` snapshot's ledger capacity usage was available (it lowers confidence when `false`) |
+| `history_sample_count` | Data points in the comparison window |
+| `actual_window_secs` | Window actually used (shorter than requested when history is short) |
 
-| Field | Type | Description |
+| Status | Body | Cause |
 |---|---|---|
-| `direction` | `string` | `Upward`, `Downward`, or `Stable` |
-| `strength` | `string` | `Weak`, `Moderate`, or `Strong` |
-| `rate_of_change` | `f64` | Stroops per minute (positive = rising, negative = falling) |
-| `window_minutes` | `u32` | Window used for the calculation |
-| `data_points` | `u32` | Number of records used |
-| `computed_at` | `string` | ISO 8601 timestamp of the computation |
+| `400 Bad Request` | `{"error": "window_secs must be between 1 and 604800, got <n>"}` | `window_secs` out of range |
+
+---
+
+## `GET /fees/recommend`
+
+A quick recommendation for inclusion within about 2 ledgers at medium urgency, based on the 100 most recent observed fees.
+
+```bash
+curl http://localhost:8080/fees/recommend
+```
+
+**Response** — `200 OK`
+
+```json
+{
+  "recommended_fee": 200,
+  "congestion": "MEDIUM",
+  "basis": "p50",
+  "min_fee": 100,
+  "avg_fee": 250,
+  "timestamp": "2024-01-15T10:30:00+00:00"
+}
+```
+
+`congestion` is derived from `avg_fee / min_fee`: below `1.5` is `LOW` (basis `p20`), up to `3.0` is `MEDIUM` (`p50`), above is `HIGH` (`p70`). `min_fee` is the lowest of the recent observed fees, not the network base fee.
+
+| Status | Body | Cause |
+|---|---|---|
+| `502 Bad Gateway` | `{"error": "No fee data available yet. Wait for the first poll cycle."}` | The store is empty (this is reported as an upstream error today) |
+| other | `{"error": "…"}` | Errors from the recommendation engine |
+
+---
+
+## `POST /fees/recommend`
+
+A configurable recommendation.
+
+**Request body**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `target_ledgers` | `u32` | No | Ledgers within which inclusion is wanted, `1` to `100` (default from `REC_DEFAULT_LEDGERS`) |
+| `urgency` | `string` | No | `Low`, `Medium` (default), `High` or `Urgent` |
+| `max_fee` | `string` | No | Upper bound in stroops, an integer string up to `100000000` |
+
+```bash
+curl -X POST http://localhost:8080/fees/recommend \
+  -H 'Content-Type: application/json' \
+  -d '{"target_ledgers": 3, "urgency": "High", "max_fee": "5000"}'
+```
+
+**Response** — `200 OK`
+
+```json
+{
+  "recommended_fee": "300",
+  "fee_in_stroops": 300,
+  "estimated_wait_ledgers": 3,
+  "confidence": 0.9,
+  "network_condition": "normal",
+  "alternatives": [
+    { "fee": "200", "estimated_wait_ledgers": 5, "confidence": 0.8, "label": "economy" }
+  ],
+  "cold_start": false,
+  "data_quality": null,
+  "explanation": null
+}
+```
+
+`network_condition` is `normal`, `rising`, `congested`, `declining` or `unknown`. `cold_start` is `true` when there is too little history; the response then uses a fallback fee and `network_condition` may be `unknown`. `data_quality` and `explanation` are objects when available and `null` otherwise; the values above are illustrative.
+
+| Status | Body | Cause |
+|---|---|---|
+| `400 Bad Request` | `{"error": "…"}` | `target_ledgers` or `max_fee` is out of range or malformed |
+| `422 Unprocessable Entity` | plain text from the JSON extractor | The body is not valid JSON for this schema (see issue "Return JSON errors for extractor rejections") |
+
+---
+
+## `GET /fees/recommend/history`
+
+The 50 most recent recommendations that were persisted, newest first.
+
+```bash
+curl http://localhost:8080/fees/recommend/history
+```
+
+**Response** — `200 OK`
+
+```json
+{
+  "entries": [
+    {
+      "id": 12,
+      "requested_at": "2024-01-15T10:30:00Z",
+      "target_ledgers": 2,
+      "percentile_basis": "p50",
+      "recommended_fee": 200
+    }
+  ]
+}
+```
+
+`entries` is empty when no repository is configured. The urgency of the original request is not stored. Rows with an unparseable timestamp are skipped.
+
+| Status | Body | Cause |
+|---|---|---|
+| `500 Internal Server Error` | `{"error": "Failed to query recommendations: <reason>"}` | Database query failed |
 
 ---
 

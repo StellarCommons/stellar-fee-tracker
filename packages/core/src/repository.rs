@@ -297,7 +297,6 @@ impl FeeRepository {
 
     /// Fetch all fee stats snapshots with captured_at >= `since`,
     /// ordered by ledger ascending.
-    #[allow(dead_code)]
     pub async fn fetch_fee_snapshots_since(
         &self,
         since: DateTime<Utc>,
