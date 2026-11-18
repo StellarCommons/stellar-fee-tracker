@@ -18,10 +18,6 @@ export function formatStroops(stroops: number | string): string {
   return `${n} str`
 }
 
-export function formatNumber(n: number): string {
-  return n.toLocaleString()
-}
-
 export function pctColor(pct: number | null): string {
   if (pct === null) return 'text-text-secondary'
   if (pct > 10)  return 'text-accent-red'
@@ -54,32 +50,4 @@ export function congestionBg(status: string): string {
     case 'Declining': return 'bg-cyan-950/30 border-accent-cyan/30'
     default:          return 'bg-accent-dim border-accent-green/30'
   }
-}
-
-export function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const s = Math.floor(diff / 1000)
-  if (s < 60)  return `${s}s ago`
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`
-  return `${Math.floor(s / 3600)}h ago`
-}
-
-export function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-}
-
-export function formatStroop(value: number): string {
-  return `${value.toLocaleString()} stroops`
-}
-
-export function formatTimestamp(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const seconds = Math.floor(diff / 1000)
-  if (seconds < 60) return `${seconds} secs ago`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes} mins ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} hours ago`
-  const days = Math.floor(hours / 24)
-  return `${days} days ago`
 }

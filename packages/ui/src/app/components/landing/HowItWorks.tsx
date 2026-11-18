@@ -85,7 +85,7 @@ export function HowItWorks() {
                     <span className="text-[#7a9ab5]">{cmd}</span>
                   </div>
                   <div
-                    className="text-[10px] text-[#3d5a73] leading-relaxed border-l-2 pl-3"
+                    className="text-[10px] text-[#6b8aa6] leading-relaxed border-l-2 pl-3"
                     style={{ borderColor: `${color}40` }}
                   >
                     {output}

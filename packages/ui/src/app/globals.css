@@ -15,33 +15,23 @@
 
   --color-text-primary:   #e2eaf4;
   --color-text-secondary: #7a9ab5;
-  --color-text-muted:     #3d5a73;
+  --color-text-muted:     #6b8aa6;
 
   --font-mono:    'JetBrains Mono', monospace;
   --font-display: 'Space Mono', monospace;
 
   --animate-slide-up: slideUp 0.4s ease-out forwards;
-  --animate-fade-in:  fadeIn 0.6s ease-out forwards;
-  --animate-blink:    blink 1.2s step-end infinite;
 }
 
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
-}
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
 }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
-/* Reduced motion: the ping/pulse dots, the slide-up/fade-in entrances and the
+/* Reduced motion: the ping/pulse dots, the slide-up entrances and the
    smooth scrolling are decorative, so they are collapsed rather than merely
    slowed down. GridBeams and the StatStrip counter check the same query in JS
    because they drive animation from requestAnimationFrame, which CSS cannot
@@ -72,18 +62,6 @@ body {
 
 ::selection { background: #00ff9d22; color: #00ff9d; }
 
-.scanlines::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 2px,
-    rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
-  );
-  z-index: 9999;
-}
-
 .grid-bg {
   background-image:
     linear-gradient(rgba(0,255,157,0.03) 1px, transparent 1px),
@@ -92,7 +70,6 @@ body {
 }
 
 .glow-green { text-shadow: 0 0 20px rgba(0,255,157,0.5); }
-.glow-cyan  { text-shadow: 0 0 20px rgba(0,212,255,0.5); }
 
 .card {
   background: #111820;

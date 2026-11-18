@@ -72,7 +72,7 @@ function StatStrip() {
             ref={r as RefObject<HTMLDivElement>}
             className="flex-1 min-w-[160px]"
           >
-            <div className="text-[9px] text-[#3d5a73] tracking-widest mb-1">
+            <div className="text-[9px] text-[#6b8aa6] tracking-widest mb-1">
               {label}
             </div>
             <div
@@ -85,7 +85,7 @@ function StatStrip() {
           </div>
         ))}
         <div className="flex-1 min-w-[160px]">
-          <div className="text-[9px] text-[#3d5a73] tracking-widest mb-1">
+          <div className="text-[9px] text-[#6b8aa6] tracking-widest mb-1">
             OPEN SOURCE
           </div>
           <div

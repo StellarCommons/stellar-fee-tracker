@@ -8,20 +8,20 @@ export function Footer() {
         <div className="flex items-center gap-2">
           <span className="text-[#00ff9d]">⚡</span>
           <span
-            className="text-xs text-[#3d5a73]"
+            className="text-xs text-[#6b8aa6]"
             style={{ fontFamily: "'Space Mono', monospace" }}
           >
             STELLARFEES
           </span>
         </div>
 
-        <div className="text-[10px] text-[#3d5a73] tracking-wide text-center">
+        <div className="text-[10px] text-[#6b8aa6] tracking-wide text-center">
           BUILT WITH RUST · NEXT.JS · STELLAR HORIZON API · OPEN SOURCE
         </div>
 
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse" />
-          <span className="text-[10px] text-[#3d5a73]">TESTNET LIVE</span>
+          <span className="text-[10px] text-[#6b8aa6]">TESTNET LIVE</span>
         </div>
       </div>
     </footer>
