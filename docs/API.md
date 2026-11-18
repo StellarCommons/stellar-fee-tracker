@@ -718,6 +718,7 @@ Returns a paginated list of triggered alert events.
 | Name | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `limit` | `i64` | No | `20` | Number of events to return (clamped to `100`) |
+| `offset` | `i64` | No | `0` | Number of events to skip, newest first (negative values are treated as `0`) |
 | `severity` | `string` | No | — | Filter by severity: `Minor`, `Moderate`, `Major`, `Critical` |
 | `delivered` | `bool` | No | — | Filter by webhook delivery success |
 | `alert_type` | `string` | No | — | Filter by `spike`, `recovery`, `good_window`, or `stale_data` |

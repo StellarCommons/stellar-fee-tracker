@@ -488,6 +488,29 @@ impl FeeRepository {
         Ok(configs)
     }
 
+    /// Fetch a single alert config by id; `Ok(None)` when it does not exist.
+    pub async fn get_alert_config(&self, id: i64) -> Result<Option<AlertConfig>, sqlx::Error> {
+        use sqlx::Row;
+        let row = sqlx::query(
+            "SELECT id, webhook_url, threshold, alert_type, enabled, created_at FROM alert_configs WHERE id = ?",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        row.map(|row| {
+            Ok(AlertConfig {
+                id: row.try_get("id")?,
+                webhook_url: row.try_get("webhook_url")?,
+                threshold: row.try_get("threshold")?,
+                alert_type: row.try_get("alert_type")?,
+                enabled: row.try_get::<i64, _>("enabled")? != 0,
+                created_at: row.try_get("created_at")?,
+            })
+        })
+        .transpose()
+    }
+
     /// Update threshold and/or enabled state for an alert config.
     /// Returns `true` if a row was updated, `false` if id not found.
     #[allow(dead_code)]
@@ -585,7 +608,7 @@ impl FeeRepository {
         severity_filter: Option<&str>,
         delivered_filter: Option<bool>,
     ) -> Result<Vec<AlertEvent>, sqlx::Error> {
-        self.query_alert_history_by_type(limit, severity_filter, delivered_filter, None)
+        self.query_alert_history_by_type(limit, 0, severity_filter, delivered_filter, None)
             .await
     }
 
@@ -606,11 +629,13 @@ impl FeeRepository {
     pub async fn query_alert_history_by_type(
         &self,
         limit: i64,
+        offset: i64,
         severity_filter: Option<&str>,
         delivered_filter: Option<bool>,
         alert_type_filter: Option<&str>,
     ) -> Result<Vec<AlertEvent>, sqlx::Error> {
         let limit = limit.clamp(1, 100);
+        let offset = offset.max(0);
 
         let conditions =
             alert_event_conditions(severity_filter, delivered_filter, alert_type_filter);
@@ -620,7 +645,7 @@ impl FeeRepository {
              FROM alert_events
              WHERE {}
              ORDER BY triggered_at DESC
-             LIMIT ?",
+             LIMIT ? OFFSET ?",
             conditions.join(" AND ")
         );
 
@@ -635,7 +660,7 @@ impl FeeRepository {
             if let Some(at) = alert_type_filter {
                 q = q.bind(at);
             }
-            q.bind(limit).fetch_all(&self.pool).await?
+            q.bind(limit).bind(offset).fetch_all(&self.pool).await?
         };
 
         let events = rows

@@ -209,36 +209,9 @@ async fn main() {
 
     // /metrics: rate limited but NOT behind API-key auth (Prometheus scrapers
     // should not need to know the API key).
-    let metrics_for_handler = app_metrics.clone();
-    let metrics_route = Router::new().route(
-        "/metrics",
-        get(move || {
-            let m = metrics_for_handler.clone();
-            async move {
-                match m.render() {
-                    Ok(body) => axum::response::Response::builder()
-                        .status(200)
-                        .header(
-                            axum::http::header::CONTENT_TYPE,
-                            "text/plain; version=0.0.4",
-                        )
-                        .body(axum::body::Body::from(body))
-                        .unwrap_or_else(|_| {
-                            axum::response::Response::new(axum::body::Body::from("internal error"))
-                        }),
-                    Err(err) => {
-                        tracing::error!("Failed to render metrics: {}", err);
-                        axum::response::Response::builder()
-                            .status(500)
-                            .body(axum::body::Body::from("metrics error"))
-                            .unwrap_or_else(|_| {
-                                axum::response::Response::new(axum::body::Body::empty())
-                            })
-                    }
-                }
-            }
-        }),
-    );
+    let metrics_route = Router::new()
+        .route("/metrics", get(api::metrics::metrics_handler))
+        .with_state(app_metrics.clone());
 
     // Rate-limited tier: metrics + business API routes.
     let rate_limited = Router::new().merge(metrics_route).merge(api_routes).layer(

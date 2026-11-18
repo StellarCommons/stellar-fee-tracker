@@ -198,19 +198,21 @@ pub async fn update_alert(
     Json(body): Json<UpdateAlertRequest>,
 ) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
     // Fetch current config to apply partial updates.
-    let configs = repo.list_alert_configs().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "error": e.to_string() })),
-        )
-    })?;
-
-    let current = configs.iter().find(|c| c.id == id).ok_or_else(|| {
-        (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": "Alert config not found" })),
-        )
-    })?;
+    let current = repo
+        .get_alert_config(id)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": e.to_string() })),
+            )
+        })?
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({ "error": "Alert config not found" })),
+            )
+        })?;
 
     let threshold = body.threshold.as_deref().unwrap_or(&current.threshold);
     let enabled = body.enabled.unwrap_or(current.enabled);
@@ -289,6 +291,8 @@ pub async fn delete_alert(
 #[derive(Debug, Deserialize)]
 pub struct AlertHistoryQuery {
     pub limit: Option<i64>,
+    /// Number of items to skip (default 0).
+    pub offset: Option<i64>,
     pub severity: Option<String>,
     pub delivered: Option<bool>,
     /// Filter by alert_type: spike | recovery | good_window | stale_data.
@@ -305,6 +309,7 @@ pub struct AlertHistoryResponse {
 ///
 /// Query params:
 /// - `limit`    — max items to return (default 20, clamped to 100)
+/// - `offset`   — items to skip, newest first (default 0)
 /// - `severity` — optional filter: Minor | Major | Critical
 /// - `delivered` — optional bool filter
 pub async fn get_alert_history(
@@ -312,6 +317,7 @@ pub async fn get_alert_history(
     Query(params): Query<AlertHistoryQuery>,
 ) -> Result<Json<AlertHistoryResponse>, (StatusCode, Json<serde_json::Value>)> {
     let limit = params.limit.unwrap_or(20).clamp(1, 100);
+    let offset = params.offset.unwrap_or(0).max(0);
     let severity = params.severity.as_deref();
     let delivered = params.delivered;
     let alert_type = params.alert_type.as_deref();
@@ -347,7 +353,7 @@ pub async fn get_alert_history(
     }
 
     let (items, total) = tokio::try_join!(
-        repo.query_alert_history_by_type(limit, severity, delivered, alert_type),
+        repo.query_alert_history_by_type(limit, offset, severity, delivered, alert_type),
         repo.count_alert_events_by_type(severity, delivered, alert_type),
     )
     .map_err(|e| {

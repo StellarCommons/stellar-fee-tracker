@@ -172,7 +172,6 @@ mod integration_tests {
     use axum::{
         body::Body,
         http::{Method, Request},
-        response::Response,
         routing::get,
         Router,
     };
@@ -181,25 +180,9 @@ mod integration_tests {
 
     async fn make_metrics_app() -> (Router, Arc<AppMetrics>) {
         let metrics = Arc::new(AppMetrics::new().unwrap());
-        let m = metrics.clone();
         let app = Router::new().route(
             "/metrics",
-            get(move || {
-                let m2 = m.clone();
-                async move {
-                    match m2.render() {
-                        Ok(body) => Response::builder()
-                            .status(200)
-                            .header("content-type", "text/plain; version=0.0.4")
-                            .body(Body::from(body))
-                            .unwrap(),
-                        Err(_) => Response::builder()
-                            .status(500)
-                            .body(Body::from("error"))
-                            .unwrap(),
-                    }
-                }
-            }),
+            get(crate::api::metrics::metrics_handler).with_state(metrics.clone()),
         );
         (app, metrics)
     }

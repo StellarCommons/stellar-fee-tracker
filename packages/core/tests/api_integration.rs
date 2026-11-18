@@ -154,7 +154,6 @@ async fn build_test_app() -> (Router, MockServer) {
 
     // ---- Metrics ----
     let app_metrics = Arc::new(AppMetrics::new().unwrap());
-    let metrics_for_handler = app_metrics.clone();
 
     // ---- Business routes (shared with main.rs) ----
     let api_routes = api::router::build_api_router(api::router::ApiRouterDeps {
@@ -174,25 +173,7 @@ async fn build_test_app() -> (Router, MockServer) {
         .route("/health", get(api::health::health))
         .route(
             "/metrics",
-            get(move || {
-                let m = metrics_for_handler.clone();
-                async move {
-                    match m.render() {
-                        Ok(body) => axum::response::Response::builder()
-                            .status(200)
-                            .header(
-                                axum::http::header::CONTENT_TYPE,
-                                "text/plain; version=0.0.4",
-                            )
-                            .body(Body::from(body))
-                            .unwrap(),
-                        Err(_) => axum::response::Response::builder()
-                            .status(500)
-                            .body(Body::from("metrics error"))
-                            .unwrap(),
-                    }
-                }
-            }),
+            get(api::metrics::metrics_handler).with_state(app_metrics.clone()),
         )
         .merge(api_routes);
 

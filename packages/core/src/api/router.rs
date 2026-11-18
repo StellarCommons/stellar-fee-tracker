@@ -5,7 +5,12 @@
 
 use std::sync::Arc;
 
-use axum::{routing::get, Router};
+use axum::{
+    http::{header::CONTENT_TYPE, StatusCode},
+    response::{IntoResponse, Response},
+    routing::get,
+    Json, Router,
+};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::api;
@@ -110,6 +115,13 @@ pub fn build_api_router(deps: ApiRouterDeps) -> Router {
                 .with_state(deps.repository),
         );
 
+    // Every client error should use the `{"error": ...}` shape: unmatched
+    // routes get a JSON 404 and axum's plain-text extractor rejections
+    // (Path/Query/Json 400/405/415/422) are rewritten into JSON.
+    let api_routes = api_routes
+        .fallback(json_not_found)
+        .layer(axum::middleware::map_response(json_error_shape));
+
     match deps.api_key {
         Some(expected_key) => {
             tracing::info!("API key authentication is enabled for protected routes");
@@ -120,4 +132,34 @@ pub fn build_api_router(deps: ApiRouterDeps) -> Router {
         }
         None => api_routes,
     }
+}
+
+/// Fallback for unmatched routes.
+async fn json_not_found() -> Response {
+    (
+        StatusCode::NOT_FOUND,
+        Json(serde_json::json!({ "error": "Not found" })),
+    )
+        .into_response()
+}
+
+/// Rewrite plain-text 4xx bodies (axum extractor rejections, 405s) into the
+/// API's `{"error": ...}` JSON shape. Responses that are already JSON pass
+/// through untouched.
+async fn json_error_shape(resp: Response) -> Response {
+    let is_plain_text = resp
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.starts_with("text/plain"));
+    if !resp.status().is_client_error() || !is_plain_text {
+        return resp;
+    }
+
+    let status = resp.status();
+    let bytes = axum::body::to_bytes(resp.into_body(), 64 * 1024)
+        .await
+        .unwrap_or_default();
+    let message = String::from_utf8_lossy(&bytes).trim().to_string();
+    (status, Json(serde_json::json!({ "error": message }))).into_response()
 }
