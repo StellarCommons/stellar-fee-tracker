@@ -2,20 +2,15 @@
 //! of fee values, combining windowing and percentile computation into one
 //! type.
 //!
-//! RollingWindow (#44) and PercentileTable (#43) don't exist in this crate
-//! yet, so windowing is implemented inline here rather than composed from
-//! them; the public surface (`push`, `percentiles`) is what a later
-//! composed version should preserve.
+//! The window is a [`RollingWindow`] and the percentile maths is
+//! [`crate::utilities::percentile_table::percentile`], so this type only adds
+//! the combination of the two.
 //!
 //! Closes #770.
 
-use std::collections::VecDeque;
+use crate::analysis::rolling_window::RollingWindow;
 
-#[allow(dead_code)]
-#[path = "../utilities/percentile_table.rs"]
-mod percentile_table;
-
-pub use percentile_table::percentile;
+pub use crate::utilities::percentile_table::percentile;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Percentiles {
@@ -26,28 +21,21 @@ pub struct Percentiles {
 }
 
 pub struct WindowedPercentile {
-    capacity: usize,
-    values: VecDeque<f64>,
+    window: RollingWindow,
 }
 
 impl WindowedPercentile {
     pub fn new(capacity: usize) -> Self {
-        Self { capacity, values: VecDeque::with_capacity(capacity) }
+        Self { window: RollingWindow::new(capacity) }
     }
 
     pub fn push(&mut self, value: f64) {
-        if self.capacity == 0 {
-            return;
-        }
-        if self.values.len() == self.capacity {
-            self.values.pop_front();
-        }
-        self.values.push_back(value);
+        self.window.push(value);
     }
 
     /// Percentiles over the values currently in the window.
     pub fn percentiles(&self) -> Percentiles {
-        let mut sorted: Vec<f64> = self.values.iter().copied().collect();
+        let mut sorted = self.window.snapshot();
         sorted.sort_by(f64::total_cmp);
         Percentiles {
             p10: percentile(&sorted, 10.0),

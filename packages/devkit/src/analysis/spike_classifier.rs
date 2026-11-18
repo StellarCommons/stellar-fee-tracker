@@ -1,9 +1,9 @@
 //! Flags a fee value as a spike when it exceeds the rolling window's p90
 //! by a configurable multiplier.
 //!
-//! Takes the window's p90 as a plain `f64` rather than a concrete
-//! RollingWindow/PercentileTable type (#45), which don't exist in this
-//! crate yet.
+//! Takes the window's p90 as a plain `f64` so it can be fed from
+//! [`crate::analysis::windowed_percentile::WindowedPercentile`] (built on
+//! `RollingWindow` and `PercentileTable`) or from any other source.
 //!
 //! Closes #771.
 

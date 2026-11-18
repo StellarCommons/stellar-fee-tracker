@@ -1,5 +1,4 @@
 //! Lenient fee_stats parsing: missing/malformed optional fields -> None.
-use serde::Deserialize;
 use serde_json::Value;
 
 #[derive(Debug, Clone, Default)]

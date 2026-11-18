@@ -1,9 +1,9 @@
 //! Flags fee values that are statistically far from their local
 //! neighborhood (a z-score-style check against nearby values).
 //!
-//! Implemented as a standalone module since the base data-quality
-//! validator (#38) doesn't exist in this crate yet; the `is_outlier`
-//! function here is what #38's validator should call once it does.
+//! Implemented as a standalone module so it can be used on its own; the
+//! `is_outlier` function is the check that [`crate::validator`] (and other
+//! data-quality code) can call.
 //!
 //! Closes #765.
 
