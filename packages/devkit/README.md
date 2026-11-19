@@ -22,6 +22,10 @@ still placeholders until their issues land.
 ```bash
 cargo build -p stellar-devkit
 cargo test -p stellar-devkit
-cargo clippy -p stellar-devkit --all-targets --all-features -- -D warnings
+cargo clippy -p stellar-devkit --all-targets -- -D warnings
 cargo fmt --check -p stellar-devkit
 ```
+
+This crate declares no Cargo features, so `--all-features` is not applicable. The clippy
+and formatting checks are currently known to fail while the devkit cleanup work lands;
+they are listed here as the intended gates, not as passing ones.
