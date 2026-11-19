@@ -1,1 +1,0 @@
-pub fn detect_spikes() {\n    // Spike detection\n}\n
