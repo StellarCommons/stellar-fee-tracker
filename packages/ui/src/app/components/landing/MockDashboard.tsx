@@ -17,10 +17,15 @@ const ROLLING = [
 
 export default function MockDashboard() {
   return (
-    <div
-      style={{ fontFamily: "'JetBrains Mono', monospace" }}
-      className="relative rounded-lg overflow-hidden border border-[#1e2a36] bg-[#080b0f] shadow-2xl shadow-black/60 w-full max-w-2xl mx-auto"
-    >
+    <>
+      <span className="sr-only">
+        Illustration of the fee dashboard with sample data; the values shown are not live.
+      </span>
+      <div
+        aria-hidden="true"
+        style={{ fontFamily: "'JetBrains Mono', monospace" }}
+        className="relative rounded-lg overflow-hidden border border-[#1e2a36] bg-[#080b0f] shadow-2xl shadow-black/60 w-full max-w-2xl mx-auto"
+      >
       {/* Titlebar */}
       <div className="flex items-center gap-1.5 px-4 py-3 border-b border-[#1e2a36] bg-[#0d1117]">
         <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
@@ -98,6 +103,7 @@ export default function MockDashboard() {
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
