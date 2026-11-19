@@ -36,6 +36,10 @@ export function FeeAlternatives({ alternatives }: Props) {
   if (!alternatives.length) return null
 
   const handleCopy = (label: string, fee: string) => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      setFeedback({ label, ok: false })
+      return
+    }
     navigator.clipboard.writeText(fee).then(
       () => setFeedback({ label, ok: true }),
       () => setFeedback({ label, ok: false }),
@@ -56,16 +60,25 @@ export function FeeAlternatives({ alternatives }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         {alternatives.map((alt) => {
           const { border, label: labelColor } = tierStyle(alt.label)
+          const formattedFee = formatStroops(Number(alt.fee))
+          const isThis = feedback?.label === alt.label
           return (
             <button
               key={alt.label}
+              type="button"
+              aria-label={`Copy ${alt.label} fee (${formattedFee})`}
               onClick={() => handleCopy(alt.label, alt.fee)}
               title="Click to copy fee"
               className={`rounded-lg border ${border} bg-bg-base px-2 py-2.5 text-left transition-colors hover:bg-bg-card`}
             >
-              <p className={`text-xs font-semibold capitalize ${labelColor}`}>{alt.label}</p>
+              <div className="flex items-center justify-between gap-1">
+                <p className={`text-xs font-semibold capitalize ${labelColor}`}>{alt.label}</p>
+                <span className="text-[10px] text-text-muted">
+                  {isThis ? (feedback.ok ? 'Copied' : 'Failed') : 'Copy'}
+                </span>
+              </div>
               <p className="text-sm font-bold text-text-primary tabular-nums mt-1">
-                {formatStroops(Number(alt.fee))}
+                {formattedFee}
               </p>
               <p className="text-xs text-text-muted mt-0.5">
                 {(alt.confidence * 100).toFixed(0)}% · ~{alt.estimated_wait_ledgers}L
