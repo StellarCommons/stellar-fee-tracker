@@ -1,4 +1,7 @@
 //! Integration test against a mocked Horizon fee_stats endpoint.
+use std::time::Duration;
+
+use stellar_devkit::horizon_client::HorizonClient;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -15,9 +18,11 @@ async fn fetches_fee_stats_from_mocked_horizon() {
         .mount(&mock_server)
         .await;
 
-    let resp = reqwest::get(format!("{}/fee_stats", mock_server.uri()))
-        .await
-        .expect("request should succeed");
+    let client = HorizonClient::new(mock_server.uri(), Duration::from_secs(5))
+        .expect("client should build");
+    let body = client.fee_stats_raw().await.expect("request should succeed");
+    let stats: serde_json::Value = serde_json::from_str(&body).expect("body should be JSON");
 
-    assert!(resp.status().is_success());
+    assert_eq!(stats["last_ledger"], "100");
+    assert_eq!(stats["p50_accepted_fee"], "100");
 }
