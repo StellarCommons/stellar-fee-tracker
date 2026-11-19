@@ -70,6 +70,11 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 | `ALERT_THRESHOLD` | `string` | `Major` | Alert severity: `Minor`, `Moderate`, `Major`, `Critical` |
 | `RUST_LOG` | `string` | `info` | Log level: `error`, `warn`, `info`, `debug`, `trace` |
 
+> **Dashboard limitation:** The UI in `packages/ui` calls the REST API directly and does not
+> send an `X-API-Key` header. When `API_KEY` is set, browser requests to protected routes fail
+> with `401 Unauthorized`. Leave `API_KEY` unset for local UI development, or place the
+> browser-facing API behind a trusted proxy that supplies the header.
+
 ## API Overview
 
 | Method | Path | Description |
