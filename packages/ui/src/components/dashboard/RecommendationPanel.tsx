@@ -20,11 +20,15 @@ const LS_KEY = 'stellar_fee_confidence'
 
 function loadConfidence(): ConfidenceLevel {
   if (typeof window === 'undefined') return 90
-  const stored = localStorage.getItem(LS_KEY)
-  const parsed = Number(stored)
-  return (CONFIDENCE_OPTIONS as readonly number[]).includes(parsed)
-    ? (parsed as ConfidenceLevel)
-    : 90
+  try {
+    const stored = localStorage.getItem(LS_KEY)
+    const parsed = Number(stored)
+    return (CONFIDENCE_OPTIONS as readonly number[]).includes(parsed)
+      ? (parsed as ConfidenceLevel)
+      : 90
+  } catch {
+    return 90
+  }
 }
 
 const MIN_LEDGERS = 1
@@ -52,7 +56,9 @@ export function RecommendationPanel() {
 
   const handleConfidenceChange = (val: ConfidenceLevel) => {
     setConfidence(val)
-    localStorage.setItem(LS_KEY, String(val))
+    try {
+      localStorage.setItem(LS_KEY, String(val))
+    } catch {}
   }
 
   const handleRecommend = async () => {
