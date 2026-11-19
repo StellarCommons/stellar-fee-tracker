@@ -94,7 +94,7 @@ export function FeeChart({
   // as a single image whose label carries the numbers a screen reader would
   // otherwise have to guess. The toggle buttons stay outside this wrapper.
   const chartLabel = history
-    ? `Fee history for the last ${window}: ${count.toLocaleString()} transactions, average ${formatStroops(avg)} stroops, 95th percentile ${formatStroops(p95)} stroops.`
+    ? `Fee history for the last ${window}: ${count.toLocaleString()} transactions, average ${formatStroops(avg)}, 95th percentile ${formatStroops(p95)}.`
     : "No fee history available.";
 
   return (
