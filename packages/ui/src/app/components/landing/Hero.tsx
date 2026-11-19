@@ -80,7 +80,7 @@ function Hero() {
         >
           <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse" />
           <span className="text-xs text-[#00ff9d] tracking-widest">
-            STELLAR TESTNET · LIVE
+            STELLAR TESTNET · SAMPLE DATA
           </span>
           <span className="text-[#1e2a36]">·</span>
           <span
@@ -152,7 +152,7 @@ function Hero() {
         className={`hidden lg:block absolute right-6 top-24 transition-all duration-700 delay-500 ${mounted ? "opacity-100" : "opacity-0"}`}
       >
         <div className="text-[9px] text-[#6b8aa6] tracking-widest mb-2 text-right">
-          LAST 15 LEDGERS
+          SAMPLE · LAST 15 LEDGERS
         </div>
         <Sparkline data={sparkData} />
         <div className="flex justify-between mt-1">
