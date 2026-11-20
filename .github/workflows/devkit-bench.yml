@@ -29,7 +29,7 @@ jobs:
       run:
         working-directory: packages/devkit
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           # Mirrors rust-toolchain.toml (#984).
@@ -55,7 +55,7 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
       - name: Upload benchmark output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: devkit-benchmark-output
           path: packages/devkit/benchmark-output.txt
