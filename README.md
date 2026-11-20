@@ -8,7 +8,7 @@ The service is built around three layers:
 
 - **Polling loop** — A background scheduler (`packages/core/src/scheduler.rs`) calls the Horizon `/fee_stats` endpoint at a configurable interval. Each result is validated, deduplicated, and persisted to SQLite.
 - **Insights engine** — An in-memory analytics engine (`packages/core/src/insights/`) computes rolling averages, extremes, congestion trends, and spike detection over the stored data.
-- **API layer** — An Axum HTTP server (`packages/core/src/api/`) exposes all insights and raw history over a versioned REST API. Responses include ETag and `Cache-Control` headers for efficient client-side caching.
+- **API layer** — An Axum HTTP server (`packages/core/src/api/`) exposes all insights and raw history over a REST API (routes are unversioned, e.g. `/fees/current`). Responses include ETag and `Cache-Control` headers for efficient client-side caching.
 
 ```
 Horizon API  →  Scheduler  →  SQLite store
@@ -17,6 +17,18 @@ Horizon API  →  Scheduler  →  SQLite store
                                    ↓
                            Axum REST API  →  Clients
 ```
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `packages/core` | The Rust service: poller, insights engine and REST API |
+| `packages/devkit` | Developer toolkit for testing and simulating the fee tracker |
+| `packages/ui` | Next.js dashboard (port 3000) — see [`packages/ui/README.md`](packages/ui/README.md) |
+
+Dashboard quickstart: start the API (port 8080), then `cd packages/ui && npm ci && npm run dev` and open
+http://localhost:3000/dashboard. `docker compose up` starts the API and the `frontend` service together.
+This project is released under the [LICENSE](LICENSE).
 
 ## Prerequisites
 
@@ -56,7 +68,7 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 |---|---|---|---|
 | `STELLAR_NETWORK` | `string` | — | **Required.** `testnet` or `mainnet` |
 | `HORIZON_URL` | `string` | Network default | Override the Horizon base URL |
-| `POLL_INTERVAL_SECONDS` | `u64` | `10` | Seconds between Horizon fee polls |
+| `POLL_INTERVAL_SECONDS` | `u64` | — | **Required** (or pass `--poll-interval`). Seconds between Horizon fee polls |
 | `API_PORT` | `u16` | `8080` | Port the REST API listens on |
 | `DATABASE_URL` | `string` | `sqlite://stellar_fees.db` | SQLite database URL |
 | `CACHE_TTL_SECONDS` | `u64` | `5` | Response cache TTL for `/fees/current` |
@@ -68,6 +80,14 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 | `API_KEY` | `string` | _(unset)_ | API key for protected routes; leave empty to disable |
 | `WEBHOOK_URL` | `string` | _(unset)_ | Webhook URL for fee spike alerts; leave empty to disable |
 | `ALERT_THRESHOLD` | `string` | `Major` | Alert severity: `Minor`, `Moderate`, `Major`, `Critical` |
+| `ENABLED_ALERT_TYPES` | `string` | all | Comma-separated: `spike`, `recovery`, `good_window`, `stale_data` |
+| `STALE_DATA_THRESHOLD_SECONDS` | `i64` | `300` | Age after which fee data is considered stale |
+| `REC_DEFAULT_CONFIDENCE` | `f64` | `0.95` | Default recommendation confidence, in (0, 1] |
+| `REC_DEFAULT_LEDGERS` | `u8` | `2` | Default ledgers ahead for recommendations (>= 1) |
+| `REC_HISTORY_WINDOW_SECS` | `u64` | `10800` | History window used for recommendations |
+| `REC_CACHE_TTL_SECS` | `u64` | `10` | Recommendation cache TTL |
+| `REC_MIN_SAMPLE_COUNT` | `usize` | `10` | Minimum samples needed to recommend |
+| `PORT` | `u16` | — | Fallback for `API_PORT` when it is unset (set by hosts like Render) |
 | `RUST_LOG` | `string` | `info` | Log level: `error`, `warn`, `info`, `debug`, `trace` |
 
 > **Dashboard limitation:** The UI in `packages/ui` calls the REST API directly and does not
@@ -133,9 +153,15 @@ docker build -t stellar-fee-tracker .
 docker run \
   -e STELLAR_NETWORK=testnet \
   -e API_PORT=8080 \
+  -e DATABASE_URL=sqlite:///data/stellar_fees.db \
+  -e ALLOWED_ORIGINS=http://localhost:3000 \
+  -v stellar_data:/data \
   -p 8080:8080 \
   stellar-fee-tracker
 ```
+
+The named volume `stellar_data` keeps the SQLite database across container removal. Without it (and the
+`DATABASE_URL` above) data is written to the container filesystem and lost on removal.
 
 ### Run with Docker Compose
 
