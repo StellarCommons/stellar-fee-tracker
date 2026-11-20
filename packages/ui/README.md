@@ -29,7 +29,8 @@ The landing page is at `/` and the dashboard at `/dashboard`.
 | `npm run build` | Production build (`next build --turbopack`) |
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint over the project, failing on any warning |
-| `npm run typecheck` | `tsc --noEmit` — the only type verification there is |
+| `npm test` | Run the Vitest suite once (`vitest run`) |
+| `npm run test:watch` | Vitest in watch mode |
 
 ## Talking to the backend
 
