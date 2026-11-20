@@ -59,4 +59,4 @@ proptest = "1"
 tokio-test = "0.4"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
-wiremock = "0.5"
+wiremock = "0.6"
