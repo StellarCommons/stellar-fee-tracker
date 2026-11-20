@@ -23,8 +23,9 @@ services:
         value: sqlite:///tmp/stellar_fees.db
       - key: RUST_LOG
         value: info
+      # The UI proxies API calls server-side, so only the UI origin needs CORS access.
       - key: ALLOWED_ORIGINS
-        value: "*"
+        value: https://stellar-fee-tracker-ui.onrender.com
 
   # ── 2. Frontend — Next.js ───────────────────────────────────────────────────
   - type: web
@@ -55,6 +56,8 @@ services:
   - type: cron
     name: stellar-keep-alive
     schedule: "*/14 * * * *"
+    # Render cron jobs have no free tier; "starter" is the cheapest paid plan (billed per minute of runtime).
+    plan: starter
     runtime: node
     buildCommand: "true"
     startCommand: >-
